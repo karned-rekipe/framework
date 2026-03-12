@@ -1,6 +1,6 @@
 import fastmcp
 
-from adapters.input.ingredient_mcp import IngredientMCP
+from adapters.input.ingredient_fastmcp import IngredientMCP
 from adapters.output.console_logger import ConsoleLogger
 from adapters.output.in_memory_ingredient_repository import InMemoryIngredientRepository
 from domain.services.ingredient_service import IngredientService
