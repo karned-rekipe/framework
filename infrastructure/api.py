@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from adapters.input.ingredient_router import IngredientRouter
+from adapters.input.ingredient_fastapi import IngredientRouter
 from adapters.output.console_logger import ConsoleLogger
 from adapters.output.in_memory_ingredient_repository import InMemoryIngredientRepository
 from domain.services.ingredient_service import IngredientService

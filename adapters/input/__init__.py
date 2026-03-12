@@ -1,4 +1,4 @@
-from .ingredient_router import IngredientRouter
-from .ingredient_mcp import IngredientMCP
+from .ingredient_fastapi import IngredientRouter
+from .ingredient_fastmcp import IngredientMCP
 
 __all__ = ["IngredientRouter", "IngredientMCP"]
