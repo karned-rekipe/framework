@@ -1,4 +1,4 @@
-from copy import deepcopy
+from dataclasses import replace
 from typing import Generic, Optional, TypeVar
 from uuid6 import UUID, uuid7
 
@@ -33,8 +33,7 @@ class InMemoryRepository(Repository[T], Generic[T]):
         entity = self._store.get(uuid)
         if entity is None:
             raise KeyError(f"Entity with uuid {uuid} not found")
-        clone = deepcopy(entity)
-        clone.uuid = uuid7()
+        clone = replace(entity, uuid=uuid7())
         self._store[clone.uuid] = clone
         return clone
 
