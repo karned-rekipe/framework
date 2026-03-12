@@ -2,15 +2,22 @@ from typing import Generic, Optional, TypeVar
 from uuid6 import UUID
 
 from domain.models.entity import Entity
+from domain.ports.logger import Logger
 from domain.ports.repository import Repository
 
 T = TypeVar("T", bound=Entity)
 
 
 class ReadUseCase(Generic[T]):
-    def __init__(self, repository: Repository[T]) -> None:
+    def __init__(self, repository: Repository[T], logger: Logger) -> None:
         self._repository = repository
+        self._logger = logger
 
     def execute(self, uuid: UUID) -> Optional[T]:
-        return self._repository.read(uuid)
-
+        self._logger.info("🔍 Reading entity", uuid=str(uuid))
+        result = self._repository.read(uuid)
+        if result is None:
+            self._logger.warning("⚠️ Entity not found", uuid=str(uuid))
+        else:
+            self._logger.info("✅ Entity found", type=type(result).__name__, uuid=str(uuid))
+        return result

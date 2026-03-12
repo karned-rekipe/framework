@@ -8,12 +8,14 @@ from adapters.input.schemas.ingredient_schema import (
     IngredientSchema,
 )
 from domain.models.ingredient import Ingredient
+from domain.ports.logger import Logger
 from domain.services.ingredient_service import IngredientService
 
 
 class IngredientRouter:
-    def __init__(self, service: IngredientService) -> None:
+    def __init__(self, service: IngredientService, logger: Logger) -> None:
         self._service = service
+        self._logger = logger
         self.router = APIRouter(prefix="/ingredient/v1", tags=["ingredients"])
         self._register_routes()
 
@@ -38,6 +40,7 @@ class IngredientRouter:
     def read(self, uuid: StdUUID) -> IngredientSchema:
         result = self._service.read(self._to_uuid6(uuid))
         if result is None:
+            self._logger.warning("⚠️ Ingredient not found via HTTP", uuid=str(uuid))
             raise HTTPException(status_code=404, detail="Ingredient not found")
         return IngredientSchema.model_validate(result)
 

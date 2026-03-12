@@ -2,6 +2,7 @@ from typing import Generic, Optional, TypeVar
 from uuid6 import UUID
 
 from domain.models.entity import Entity
+from domain.ports.logger import Logger
 from domain.ports.repository import Repository
 from application.use_cases import (
     CreateUseCase,
@@ -16,13 +17,13 @@ T = TypeVar("T", bound=Entity)
 
 
 class BaseService(Generic[T]):
-    def __init__(self, repository: Repository[T]) -> None:
-        self._create = CreateUseCase(repository)
-        self._read = ReadUseCase(repository)
-        self._update = UpdateUseCase(repository)
-        self._delete = DeleteUseCase(repository)
-        self._find_all = FindAllUseCase(repository)
-        self._duplicate = DuplicateUseCase(repository)
+    def __init__(self, repository: Repository[T], logger: Logger) -> None:
+        self._create = CreateUseCase(repository, logger)
+        self._read = ReadUseCase(repository, logger)
+        self._update = UpdateUseCase(repository, logger)
+        self._delete = DeleteUseCase(repository, logger)
+        self._find_all = FindAllUseCase(repository, logger)
+        self._duplicate = DuplicateUseCase(repository, logger)
 
     def create(self, entity: T) -> T:
         return self._create.execute(entity)
@@ -41,4 +42,3 @@ class BaseService(Generic[T]):
 
     def duplicate(self, uuid: UUID) -> T:
         return self._duplicate.execute(uuid)
-
