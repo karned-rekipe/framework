@@ -1,15 +1,19 @@
 from typing import Generic, TypeVar
 
 from domain.models.entity import Entity
+from domain.ports.logger import Logger
 from domain.ports.repository import Repository
 
 T = TypeVar("T", bound=Entity)
 
 
 class FindAllUseCase(Generic[T]):
-    def __init__(self, repository: Repository[T]) -> None:
+    def __init__(self, repository: Repository[T], logger: Logger) -> None:
         self._repository = repository
+        self._logger = logger
 
     def execute(self) -> list[T]:
-        return self._repository.find_all()
-
+        self._logger.info("📋 Finding all entities")
+        result = self._repository.find_all()
+        self._logger.info("✅ Entities found", count=len(result))
+        return result
