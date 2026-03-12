@@ -1,11 +1,11 @@
 from dataclasses import dataclass, field
-from uuid import UUID, uuid7
+from uuid6 import uuid7, UUID
 from typing import Optional
 
 
 @dataclass
 class Item:
-    id: UUID = field(default_factory=uuid7)
+    uuid: UUID = field(default_factory = uuid7)
     name: str = ""
     unit: Optional[str] = None
 
