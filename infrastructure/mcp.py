@@ -1,17 +1,13 @@
 import fastmcp
 
 from adapters.input.ingredient_fastmcp import IngredientMCP
-from adapters.output.console_logger import ConsoleLogger
-from adapters.output.in_memory_ingredient_repository import InMemoryIngredientRepository
-from domain.services.ingredient_service import IngredientService
+from infrastructure.container import build_ingredient_service
 
 
 def create_mcp() -> fastmcp.FastMCP:
     mcp = fastmcp.FastMCP("Rekipe - Ingredients")
 
-    logger = ConsoleLogger()
-    ingredient_repository = InMemoryIngredientRepository()
-    ingredient_service = IngredientService(ingredient_repository, logger)
+    ingredient_service, logger = build_ingredient_service()
     IngredientMCP(ingredient_service, logger, mcp)
 
     return mcp
