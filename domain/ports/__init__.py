@@ -1,4 +1,5 @@
-from .item_repository import ItemRepository
+from .repository import Repository
+from .ingredient_repository import IngredientRepository
 
-__all__ = ["ItemRepository"]
+__all__ = ["Repository", "IngredientRepository"]
 
