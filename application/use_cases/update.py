@@ -12,8 +12,8 @@ class UpdateUseCase(Generic[T]):
         self._repository = repository
         self._logger = logger
 
-    def execute(self, entity: T) -> T:
+    async def execute(self, entity: T) -> T:
         self._logger.info("✏️ Updating entity", type=type(entity).__name__, uuid=str(entity.uuid))
-        result = self._repository.update(entity)
+        result = await self._repository.update(entity)
         self._logger.info("✅ Entity updated", type=type(result).__name__, uuid=str(result.uuid))
         return result

@@ -32,32 +32,32 @@ class IngredientRouter:
     def _to_uuid6(uuid: StdUUID) -> UUID:
         return UUID(str(uuid))
 
-    def create(self, payload: IngredientCreateSchema) -> IngredientSchema:
+    async def create(self, payload: IngredientCreateSchema) -> IngredientSchema:
         ingredient = Ingredient(name=payload.name, unit=payload.unit)
-        result = self._service.create(ingredient)
+        result = await self._service.create(ingredient)
         return IngredientSchema.model_validate(result)
 
-    def read(self, uuid: StdUUID) -> IngredientSchema:
-        result = self._service.read(self._to_uuid6(uuid))
+    async def read(self, uuid: StdUUID) -> IngredientSchema:
+        result = await self._service.read(self._to_uuid6(uuid))
         if result is None:
             self._logger.warning("⚠️ Ingredient not found via HTTP", uuid=str(uuid))
             raise HTTPException(status_code=404, detail="Ingredient not found")
         return IngredientSchema.model_validate(result)
 
-    def update(self, uuid: StdUUID, payload: IngredientUpdateSchema) -> IngredientSchema:
+    async def update(self, uuid: StdUUID, payload: IngredientUpdateSchema) -> IngredientSchema:
         ingredient = Ingredient(uuid=self._to_uuid6(uuid), name=payload.name, unit=payload.unit)
-        result = self._service.update(ingredient)
+        result = await self._service.update(ingredient)
         return IngredientSchema.model_validate(result)
 
-    def delete(self, uuid: StdUUID) -> None:
-        self._service.delete(self._to_uuid6(uuid))
+    async def delete(self, uuid: StdUUID) -> None:
+        await self._service.delete(self._to_uuid6(uuid))
 
-    def find_all(self) -> list[IngredientSchema]:
-        return [IngredientSchema.model_validate(i) for i in self._service.find_all()]
+    async def find_all(self) -> list[IngredientSchema]:
+        return [IngredientSchema.model_validate(i) for i in await self._service.find_all()]
 
-    def duplicate(self, uuid: StdUUID) -> IngredientSchema:
-        result = self._service.duplicate(self._to_uuid6(uuid))
+    async def duplicate(self, uuid: StdUUID) -> IngredientSchema:
+        result = await self._service.duplicate(self._to_uuid6(uuid))
         return IngredientSchema.model_validate(result)
 
-    def find_by_name(self, name: str) -> list[IngredientSchema]:
-        return [IngredientSchema.model_validate(i) for i in self._service.find_by_name(name)]
+    async def find_by_name(self, name: str) -> list[IngredientSchema]:
+        return [IngredientSchema.model_validate(i) for i in await self._service.find_by_name(name)]

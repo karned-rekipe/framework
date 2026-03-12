@@ -13,8 +13,8 @@ class DuplicateUseCase(Generic[T]):
         self._repository = repository
         self._logger = logger
 
-    def execute(self, uuid: UUID) -> T:
+    async def execute(self, uuid: UUID) -> T:
         self._logger.info("📋 Duplicating entity", uuid=str(uuid))
-        result = self._repository.duplicate(uuid)
+        result = await self._repository.duplicate(uuid)
         self._logger.info("✅ Entity duplicated", original_uuid=str(uuid), new_uuid=str(result.uuid))
         return result

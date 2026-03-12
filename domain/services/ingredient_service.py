@@ -10,8 +10,8 @@ class IngredientService(BaseService[Ingredient]):
         self._repository = repository
         self._logger = logger
 
-    def find_by_name(self, name: str) -> list[Ingredient]:
+    async def find_by_name(self, name: str) -> list[Ingredient]:
         self._logger.info("🔍 Finding ingredients by name", name=name)
-        result = self._repository.find_by_name(name)
+        result = await self._repository.find_by_name(name)
         self._logger.info("✅ Ingredients found", name=name, count=len(result))
         return result
