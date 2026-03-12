@@ -1,8 +1,9 @@
 from dataclasses import asdict, replace
 from typing import Any, Generic, Optional, TypeVar
 from uuid6 import UUID, uuid7
-from motor.motor_asyncio import AsyncIOMotorCollection
+from motor.motor_asyncio import AsyncIOMotorClient
 
+from adapters.output.mongodb_config import MongoDBConfig
 from domain.models.entity import Entity
 from domain.ports.repository import Repository
 
@@ -10,9 +11,11 @@ T = TypeVar("T", bound=Entity)
 
 
 class MongoDBRepository(Repository[T], Generic[T]):
-    def __init__(self, collection: AsyncIOMotorCollection, entity_class: type[T]) -> None:
-        self._collection = collection
+    def __init__(self, config: MongoDBConfig, entity_class: type[T]) -> None:
+        self._config = config
         self._entity_class = entity_class
+        client = AsyncIOMotorClient(config.uri)
+        self._collection = client[config.db_name][config.collection_name]
 
     def _to_doc(self, entity: T) -> dict[str, Any]:
         doc = asdict(entity)
@@ -49,4 +52,3 @@ class MongoDBRepository(Repository[T], Generic[T]):
         clone = replace(clone, uuid=uuid7())
         await self._collection.insert_one(self._to_doc(clone))
         return clone
-
