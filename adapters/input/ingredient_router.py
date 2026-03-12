@@ -1,0 +1,60 @@
+from fastapi import APIRouter, HTTPException
+from uuid import UUID as StdUUID
+from uuid6 import UUID
+
+from adapters.input.schemas.ingredient_schema import (
+    IngredientCreateSchema,
+    IngredientUpdateSchema,
+    IngredientSchema,
+)
+from domain.models.ingredient import Ingredient
+from domain.services.ingredient_service import IngredientService
+
+
+class IngredientRouter:
+    def __init__(self, service: IngredientService) -> None:
+        self._service = service
+        self.router = APIRouter(prefix="/ingredient/v1", tags=["ingredients"])
+        self._register_routes()
+
+    def _register_routes(self) -> None:
+        self.router.add_api_route("/", self.create, methods=["POST"], response_model=IngredientSchema, status_code=201)
+        self.router.add_api_route("/", self.find_all, methods=["GET"], response_model=list[IngredientSchema])
+        self.router.add_api_route("/search", self.find_by_name, methods=["GET"], response_model=list[IngredientSchema])
+        self.router.add_api_route("/{uuid}", self.read, methods=["GET"], response_model=IngredientSchema)
+        self.router.add_api_route("/{uuid}", self.update, methods=["PUT"], response_model=IngredientSchema)
+        self.router.add_api_route("/{uuid}", self.delete, methods=["DELETE"], status_code=204)
+        self.router.add_api_route("/{uuid}/duplicate", self.duplicate, methods=["POST"], response_model=IngredientSchema, status_code=201)
+
+    @staticmethod
+    def _to_uuid6(uuid: StdUUID) -> UUID:
+        return UUID(str(uuid))
+
+    def create(self, payload: IngredientCreateSchema) -> IngredientSchema:
+        ingredient = Ingredient(name=payload.name, unit=payload.unit)
+        result = self._service.create(ingredient)
+        return IngredientSchema.model_validate(result)
+
+    def read(self, uuid: StdUUID) -> IngredientSchema:
+        result = self._service.read(self._to_uuid6(uuid))
+        if result is None:
+            raise HTTPException(status_code=404, detail="Ingredient not found")
+        return IngredientSchema.model_validate(result)
+
+    def update(self, uuid: StdUUID, payload: IngredientUpdateSchema) -> IngredientSchema:
+        ingredient = Ingredient(uuid=self._to_uuid6(uuid), name=payload.name, unit=payload.unit)
+        result = self._service.update(ingredient)
+        return IngredientSchema.model_validate(result)
+
+    def delete(self, uuid: StdUUID) -> None:
+        self._service.delete(self._to_uuid6(uuid))
+
+    def find_all(self) -> list[IngredientSchema]:
+        return [IngredientSchema.model_validate(i) for i in self._service.find_all()]
+
+    def duplicate(self, uuid: StdUUID) -> IngredientSchema:
+        result = self._service.duplicate(self._to_uuid6(uuid))
+        return IngredientSchema.model_validate(result)
+
+    def find_by_name(self, name: str) -> list[IngredientSchema]:
+        return [IngredientSchema.model_validate(i) for i in self._service.find_by_name(name)]
