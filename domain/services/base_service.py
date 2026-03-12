@@ -25,20 +25,20 @@ class BaseService(Generic[T]):
         self._find_all = FindAllUseCase(repository, logger)
         self._duplicate = DuplicateUseCase(repository, logger)
 
-    def create(self, entity: T) -> T:
-        return self._create.execute(entity)
+    async def create(self, entity: T) -> T:
+        return await self._create.execute(entity)
 
-    def read(self, uuid: UUID) -> Optional[T]:
-        return self._read.execute(uuid)
+    async def read(self, uuid: UUID) -> Optional[T]:
+        return await self._read.execute(uuid)
 
-    def update(self, entity: T) -> T:
-        return self._update.execute(entity)
+    async def update(self, entity: T) -> T:
+        return await self._update.execute(entity)
 
-    def delete(self, uuid: UUID) -> None:
-        self._delete.execute(uuid)
+    async def delete(self, uuid: UUID) -> None:
+        await self._delete.execute(uuid)
 
-    def find_all(self) -> list[T]:
-        return self._find_all.execute()
+    async def find_all(self) -> list[T]:
+        return await self._find_all.execute()
 
-    def duplicate(self, uuid: UUID) -> T:
-        return self._duplicate.execute(uuid)
+    async def duplicate(self, uuid: UUID) -> T:
+        return await self._duplicate.execute(uuid)

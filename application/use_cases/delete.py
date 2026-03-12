@@ -13,7 +13,7 @@ class DeleteUseCase(Generic[T]):
         self._repository = repository
         self._logger = logger
 
-    def execute(self, uuid: UUID) -> None:
+    async def execute(self, uuid: UUID) -> None:
         self._logger.info("🗑️ Deleting entity", uuid=str(uuid))
-        self._repository.delete(uuid)
+        await self._repository.delete(uuid)
         self._logger.info("✅ Entity deleted", uuid=str(uuid))

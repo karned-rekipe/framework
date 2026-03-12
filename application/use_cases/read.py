@@ -13,9 +13,9 @@ class ReadUseCase(Generic[T]):
         self._repository = repository
         self._logger = logger
 
-    def execute(self, uuid: UUID) -> Optional[T]:
+    async def execute(self, uuid: UUID) -> Optional[T]:
         self._logger.info("🔍 Reading entity", uuid=str(uuid))
-        result = self._repository.read(uuid)
+        result = await self._repository.read(uuid)
         if result is None:
             self._logger.warning("⚠️ Entity not found", uuid=str(uuid))
         else:

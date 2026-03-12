@@ -6,6 +6,5 @@ from domain.ports.repository import Repository
 
 class IngredientRepository(Repository[Ingredient]):
     @abstractmethod
-    def find_by_name(self, name: str) -> list[Ingredient]:
+    async def find_by_name(self, name: str) -> list[Ingredient]:
         pass
-

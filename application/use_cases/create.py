@@ -12,8 +12,8 @@ class CreateUseCase(Generic[T]):
         self._repository = repository
         self._logger = logger
 
-    def execute(self, entity: T) -> T:
+    async def execute(self, entity: T) -> T:
         self._logger.info("➕ Creating entity", type=type(entity).__name__, uuid=str(entity.uuid))
-        result = self._repository.create(entity)
+        result = await self._repository.create(entity)
         self._logger.info("✅ Entity created", type=type(result).__name__, uuid=str(result.uuid))
         return result
