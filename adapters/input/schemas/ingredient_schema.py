@@ -10,6 +10,11 @@ class IngredientCreateSchema(BaseModel):
     unit: Optional[str] = None
 
 
+class IngredientPatchSchema(BaseModel):
+    name: Optional[str] = None
+    unit: Optional[str] = None
+
+
 class IngredientUpdateSchema(BaseModel):
     uuid: UUID
     name: str
