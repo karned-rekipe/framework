@@ -27,7 +27,10 @@ class InMemoryRepository(Repository[T], Generic[T]):
         self._store.pop(uuid, None)
 
     async def find_all(self) -> list[T]:
-        return list(self._store.values())
+        return [e for e in self._store.values() if not e.is_deleted]
+
+    async def find_deleted(self) -> list[T]:
+        return [e for e in self._store.values() if e.is_deleted]
 
     async def duplicate(self, uuid: UUID) -> T:
         entity = self._store.get(uuid)
