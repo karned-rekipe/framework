@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from typing import Optional
 from uuid import UUID
 
-from adapters.input.schemas.base_schema import BaseSchema
+from kcrud.adapters.input.schemas.base_schema import BaseSchema
 
 
 class IngredientCreateSchema(BaseModel):

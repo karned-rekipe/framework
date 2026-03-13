@@ -1,7 +1,7 @@
 from abc import abstractmethod
 
+from kcrud.domain.ports.repository import Repository
 from domain.models.ingredient import Ingredient
-from domain.ports.repository import Repository
 
 
 class IngredientRepository(Repository[Ingredient]):
