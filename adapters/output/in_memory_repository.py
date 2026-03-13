@@ -31,7 +31,7 @@ class InMemoryRepository(Repository[T], Generic[T]):
 
     async def duplicate(self, uuid: UUID) -> T:
         entity = self._store.get(uuid)
-        if entity is None:
+        if entity is None or entity.is_deleted:
             raise KeyError(f"Entity with uuid {uuid} not found")
         clone = replace(entity, uuid=uuid7())
         self._store[clone.uuid] = clone

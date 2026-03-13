@@ -1,3 +1,5 @@
+from dataclasses import replace
+from datetime import datetime, timezone
 from typing import Generic, TypeVar
 
 from domain.models.entity import Entity
@@ -13,6 +15,11 @@ class UpdateUseCase(Generic[T]):
         self._logger = logger
 
     async def execute(self, entity: T) -> T:
+        entity = replace(
+            entity,
+            updated_at=datetime.now(timezone.utc),
+            version=entity.version + 1,
+        )
         self._logger.info("✏️ Updating entity", type=type(entity).__name__, uuid=str(entity.uuid))
         result = await self._repository.update(entity)
         self._logger.info("✅ Entity updated", type=type(result).__name__, uuid=str(result.uuid))

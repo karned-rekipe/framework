@@ -14,6 +14,6 @@ class FindAllUseCase(Generic[T]):
 
     async def execute(self) -> list[T]:
         self._logger.info("📋 Finding all entities")
-        result = await self._repository.find_all()
+        result = [e for e in await self._repository.find_all() if not e.is_deleted]
         self._logger.info("✅ Entities found", count=len(result))
         return result
