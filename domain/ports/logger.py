@@ -8,6 +8,7 @@ class LogLevel(Enum):
     INFO = "INFO"
     WARNING = "WARNING"
     ERROR = "ERROR"
+    CRITICAL = "CRITICAL"
 
 
 class Logger(ABC):
@@ -26,6 +27,9 @@ class Logger(ABC):
 
     def error(self, message: str, **metadata: Any) -> None:
         self.log(LogLevel.ERROR, message, **metadata)
+
+    def critical(self, message: str, **metadata: Any) -> None:
+        self.log(LogLevel.CRITICAL, message, **metadata)
 
 
 
