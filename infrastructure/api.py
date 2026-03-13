@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
 from adapters.input.ingredient_fastapi import IngredientRouter
-from domain.ports.logger import Logger
+from kcrud.domain.ports.logger import Logger
 from infrastructure.container import build_ingredient_service
 
 

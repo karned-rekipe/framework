@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from domain.models.entity import Entity
+from kcrud.domain.models.entity import Entity
 
 
 @dataclass

@@ -1,7 +1,7 @@
+from kcrud.domain.ports.logger import Logger
+from kcrud.domain.services.base_service import BaseService
 from domain.models.ingredient import Ingredient
 from domain.ports.ingredient_repository import IngredientRepository
-from domain.ports.logger import Logger
-from domain.services.base_service import BaseService
 
 
 class IngredientService(BaseService[Ingredient]):

@@ -1,9 +1,13 @@
 import logging
 import uvicorn
+from pathlib import Path
 
-from domain.ports.logger import Logger, LogLevel
+from kcrud.domain.ports.logger import Logger, LogLevel
+from kcrud.infrastructure.config import load_config
 from infrastructure.api import create_api
-from infrastructure.config import load_config
+
+
+_CONFIG_PATH = Path(__file__).parent / "config.yaml"
 
 
 class _InterceptHandler(logging.Handler):
@@ -48,7 +52,7 @@ api, logger = create_api()
 _setup_logging(logger)
 
 if __name__ == "__main__":
-    config = load_config()
+    config = load_config(_CONFIG_PATH)
     uvicorn.run(
         "main_api:api",
         host=config.api.host,

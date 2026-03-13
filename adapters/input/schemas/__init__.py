@@ -1,10 +1,8 @@
-from .base_schema import BaseSchema
-from .ingredient_schema import IngredientCreateSchema, IngredientUpdateSchema, IngredientSchema
+from .ingredient_schema import IngredientCreateSchema, IngredientUpdateSchema, IngredientPatchSchema, IngredientSchema
 
 __all__ = [
-    "BaseSchema",
     "IngredientCreateSchema",
     "IngredientUpdateSchema",
+    "IngredientPatchSchema",
     "IngredientSchema",
 ]
-
