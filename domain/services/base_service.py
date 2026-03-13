@@ -11,6 +11,7 @@ from application.use_cases import (
     DeleteUseCase,
     FindAllUseCase,
     DuplicateUseCase,
+    PurgeUseCase,
 )
 
 T = TypeVar("T", bound=Entity)
@@ -24,6 +25,7 @@ class BaseService(Generic[T]):
         self._delete = DeleteUseCase(repository, logger, retention_days)
         self._find_all = FindAllUseCase(repository, logger)
         self._duplicate = DuplicateUseCase(repository, logger)
+        self._purge = PurgeUseCase(repository, logger, retention_days)
 
     async def create(self, entity: T) -> T:
         return await self._create.execute(entity)
@@ -42,3 +44,6 @@ class BaseService(Generic[T]):
 
     async def duplicate(self, uuid: UUID) -> T:
         return await self._duplicate.execute(uuid)
+
+    async def purge(self) -> int:
+        return await self._purge.execute()

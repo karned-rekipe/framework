@@ -58,6 +58,9 @@ class MongoDBRepository(Repository[T], Generic[T]):
     async def find_all(self) -> list[T]:
         return [self._from_doc(doc) async for doc in self._collection.find({"deleted_at": None})]
 
+    async def find_deleted(self) -> list[T]:
+        return [self._from_doc(doc) async for doc in self._collection.find({"deleted_at": {"$ne": None}})]
+
     async def duplicate(self, uuid: UUID) -> T:
         doc = await self._collection.find_one({"_id": str(uuid), "deleted_at": None})
         if doc is None:

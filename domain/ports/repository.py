@@ -29,5 +29,9 @@ class Repository(ABC, Generic[T]):
         pass
 
     @abstractmethod
+    async def find_deleted(self) -> list[T]:
+        pass
+
+    @abstractmethod
     async def duplicate(self, uuid: UUID) -> T:
         pass

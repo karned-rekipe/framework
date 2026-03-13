@@ -4,6 +4,7 @@ from .update import UpdateUseCase
 from .delete import DeleteUseCase
 from .find_all import FindAllUseCase
 from .duplicate import DuplicateUseCase
+from .purge import PurgeUseCase
 
 __all__ = [
     "CreateUseCase",
@@ -12,5 +13,5 @@ __all__ = [
     "DeleteUseCase",
     "FindAllUseCase",
     "DuplicateUseCase",
+    "PurgeUseCase",
 ]
-
