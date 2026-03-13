@@ -1,10 +1,11 @@
 from fastapi import FastAPI
 
 from adapters.input.ingredient_fastapi import IngredientRouter
+from domain.ports.logger import Logger
 from infrastructure.container import build_ingredient_service
 
 
-def create_api() -> FastAPI:
+def create_api() -> tuple[FastAPI, Logger]:
     api = FastAPI()
 
     ingredient_service, logger = build_ingredient_service()
@@ -12,5 +13,5 @@ def create_api() -> FastAPI:
 
     api.include_router(ingredient_router.router)
 
-    return api
+    return api, logger
 
