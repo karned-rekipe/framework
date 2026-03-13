@@ -56,10 +56,16 @@ class ApiSettings(BaseModel):
     reload: bool = True
 
 
+class McpSettings(BaseModel):
+    host: str = "127.0.0.1"
+    port: int = 8001
+
+
 class AppConfig(BaseModel):
     adapters: AdaptersSettings = AdaptersSettings()
     soft_delete: SoftDeleteSettings = SoftDeleteSettings()
     api: ApiSettings = ApiSettings()
+    mcp: McpSettings = McpSettings()
 
 
 def load_config(path: Path = _CONFIG_PATH) -> AppConfig:

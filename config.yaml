@@ -16,6 +16,10 @@ api:
   port: 8000
   reload: true
 
+mcp:
+  host: 127.0.0.1
+  port: 8001
+
 
   retention_days: 30    # durée de rétention en jours avant suppression physique
                         # 0   = suppression immédiate (pas de soft delete)
