@@ -1,0 +1,10 @@
+adapters:
+  logger: console       # console (seule option disponible pour l'instant)
+
+  repository: memory    # memory | mongodb
+
+  # mongodb:
+  #   uri: mongodb://localhost:27017
+  #   db_name: rekipe
+  #   collection_name: ingredients
+
