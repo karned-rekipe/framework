@@ -8,11 +8,28 @@ from pydantic import BaseModel, field_validator
 
 _CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
 
+_DUCKDB_SUPPORTED_EXTENSIONS = {".csv", ".parquet", ".json", ".arrow"}
+
 
 class MongoDBSettings(BaseModel):
     uri: str
     db_name: str
     collection_name: str
+
+
+class DuckDBSettings(BaseModel):
+    path: str
+
+    @field_validator("path")
+    @classmethod
+    def must_be_supported_format(cls, v: str) -> str:
+        ext = Path(v).suffix.lower()
+        if ext not in _DUCKDB_SUPPORTED_EXTENSIONS:
+            raise ValueError(
+                f"Format '{ext}' non supporté par DuckDB. "
+                f"Formats acceptés : {', '.join(sorted(_DUCKDB_SUPPORTED_EXTENSIONS))}"
+            )
+        return v
 
 
 class SoftDeleteSettings(BaseModel):
@@ -28,8 +45,9 @@ class SoftDeleteSettings(BaseModel):
 
 class AdaptersSettings(BaseModel):
     logger: Literal["console"] = "console"
-    repository: Literal["memory", "mongodb"] = "memory"
+    repository: Literal["memory", "mongodb", "duckdb"] = "memory"
     mongodb: MongoDBSettings | None = None
+    duckdb: DuckDBSettings | None = None
 
 
 class AppConfig(BaseModel):

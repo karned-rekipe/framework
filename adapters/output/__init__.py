@@ -4,6 +4,8 @@ from .console_logger import ConsoleLogger
 from .mongodb_config import MongoDBConfig
 from .mongodb_repository import MongoDBRepository
 from .mongodb_ingredient_repository import MongoDBIngredientRepository
+from .duckdb_repository import DuckDBRepository
+from .duckdb_ingredient_repository import DuckDBIngredientRepository
 
 __all__ = [
     "InMemoryRepository",
@@ -12,4 +14,6 @@ __all__ = [
     "MongoDBConfig",
     "MongoDBRepository",
     "MongoDBIngredientRepository",
+    "DuckDBRepository",
+    "DuckDBIngredientRepository",
 ]

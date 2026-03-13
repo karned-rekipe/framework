@@ -1,12 +1,15 @@
 adapters:
   logger: console       # console (seule option disponible pour l'instant)
 
-  repository: memory    # memory | mongodb
+  repository: memory    # memory | mongodb | duckdb
 
   # mongodb:
   #   uri: mongodb://localhost:27017
   #   db_name: rekipe
   #   collection_name: ingredients
+
+  # duckdb:
+  #   path: data/ingredients.csv     # .csv | .parquet | .json | .arrow
 
 soft_delete:
   retention_days: 30    # durée de rétention en jours avant suppression physique

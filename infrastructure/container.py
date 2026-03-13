@@ -19,6 +19,11 @@ def _build_repository(config: AppConfig) -> IngredientRepository:
                 raise ValueError("repository=mongodb mais aucune section [adapters.mongodb] dans config.yaml")
             mongo = config.adapters.mongodb
             return MongoDBIngredientRepository(MongoDBConfig(uri=mongo.uri, db_name=mongo.db_name, collection_name=mongo.collection_name))
+        case "duckdb":
+            from adapters.output.duckdb_ingredient_repository import DuckDBIngredientRepository
+            if config.adapters.duckdb is None:
+                raise ValueError("repository=duckdb mais aucune section [adapters.duckdb] dans config.yaml")
+            return DuckDBIngredientRepository(config.adapters.duckdb.path)
         case _:
             return InMemoryIngredientRepository()
 
