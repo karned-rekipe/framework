@@ -8,3 +8,8 @@ adapters:
   #   db_name: rekipe
   #   collection_name: ingredients
 
+soft_delete:
+  retention_days: 30    # durée de rétention en jours avant suppression physique
+                        # 0   = suppression immédiate (pas de soft delete)
+                        # null = conservation infinie (jamais supprimé physiquement)
+

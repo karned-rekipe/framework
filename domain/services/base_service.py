@@ -17,11 +17,11 @@ T = TypeVar("T", bound=Entity)
 
 
 class BaseService(Generic[T]):
-    def __init__(self, repository: Repository[T], logger: Logger) -> None:
+    def __init__(self, repository: Repository[T], logger: Logger, retention_days: float | None = None) -> None:
         self._create = CreateUseCase(repository, logger)
         self._read = ReadUseCase(repository, logger)
         self._update = UpdateUseCase(repository, logger)
-        self._delete = DeleteUseCase(repository, logger)
+        self._delete = DeleteUseCase(repository, logger, retention_days)
         self._find_all = FindAllUseCase(repository, logger)
         self._duplicate = DuplicateUseCase(repository, logger)
 
@@ -34,8 +34,8 @@ class BaseService(Generic[T]):
     async def update(self, entity: T) -> T:
         return await self._update.execute(entity)
 
-    async def delete(self, uuid: UUID) -> None:
-        await self._delete.execute(uuid)
+    async def delete(self, uuid: UUID, deleted_by: str | None = None) -> None:
+        await self._delete.execute(uuid, deleted_by)
 
     async def find_all(self) -> list[T]:
         return await self._find_all.execute()

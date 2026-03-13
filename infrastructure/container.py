@@ -23,10 +23,13 @@ def _build_repository(config: AppConfig) -> IngredientRepository:
             return InMemoryIngredientRepository()
 
 
-def build_ingredient_service() -> tuple[IngredientService, Logger]:
-    config = load_config()
+def _build_ingredient_service(config: AppConfig) -> tuple[IngredientService, Logger]:
     logger = _build_logger(config)
     repository = _build_repository(config)
-    return IngredientService(repository, logger), logger
+    return IngredientService(repository, logger, config.soft_delete.retention_days), logger
+
+
+def build_ingredient_service() -> tuple[IngredientService, Logger]:
+    return _build_ingredient_service(load_config())
 
 

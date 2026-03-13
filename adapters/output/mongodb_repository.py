@@ -1,4 +1,5 @@
-from dataclasses import asdict, replace
+from dataclasses import asdict, fields, replace
+from datetime import datetime
 from typing import Any, Generic, Optional, TypeVar
 from uuid6 import UUID, uuid7
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -20,10 +21,23 @@ class MongoDBRepository(Repository[T], Generic[T]):
     def _to_doc(self, entity: T) -> dict[str, Any]:
         doc = asdict(entity)
         doc["_id"] = str(doc.pop("uuid"))
+        for key, value in doc.items():
+            if isinstance(value, datetime):
+                doc[key] = value.isoformat()
         return doc
 
     def _from_doc(self, doc: dict[str, Any]) -> T:
+        doc = dict(doc)
         doc["uuid"] = UUID(doc.pop("_id"))
+        entity_fields = {f.name for f in fields(self._entity_class)}
+        for key in list(doc.keys()):
+            if key not in entity_fields:
+                doc.pop(key)
+            elif isinstance(doc[key], str):
+                try:
+                    doc[key] = datetime.fromisoformat(doc[key])
+                except ValueError:
+                    pass
         return self._entity_class(**doc)
 
     async def create(self, entity: T) -> T:
@@ -42,10 +56,10 @@ class MongoDBRepository(Repository[T], Generic[T]):
         await self._collection.delete_one({"_id": str(uuid)})
 
     async def find_all(self) -> list[T]:
-        return [self._from_doc(doc) async for doc in self._collection.find()]
+        return [self._from_doc(doc) async for doc in self._collection.find({"deleted_at": None})]
 
     async def duplicate(self, uuid: UUID) -> T:
-        doc = await self._collection.find_one({"_id": str(uuid)})
+        doc = await self._collection.find_one({"_id": str(uuid), "deleted_at": None})
         if doc is None:
             raise KeyError(f"Entity with uuid {uuid} not found")
         clone = self._from_doc({**doc})
