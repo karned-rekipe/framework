@@ -6,13 +6,31 @@ build-backend = "hatchling.build"
 name = "kcrud"
 version = "0.1.0"
 description = "Generic async CRUD framework — domain, use cases, repositories, logger"
-requires-python = "==3.12"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = "==3.13"
+authors = [
+    { name = "Killian KOPP", email = "killiankopp@gmail.com" }
+]
+keywords = ["crud", "async", "framework", "domain", "repository", "clean-architecture"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
 dependencies = [
     "pydantic==2.12",
     "pyyaml==6.0",
     "uuid6==2025.0",
     "loguru==0.7",
 ]
+
+[project.urls]
+Homepage = "https://github.com/karned-rekipe/framework"
+Repository = "https://github.com/karned-rekipe/framework"
 
 [project.optional-dependencies]
 mongodb = ["motor==3.7"]
