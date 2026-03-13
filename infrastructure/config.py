@@ -50,9 +50,16 @@ class AdaptersSettings(BaseModel):
     duckdb: DuckDBSettings | None = None
 
 
+class ApiSettings(BaseModel):
+    host: str = "0.0.0.0"
+    port: int = 8000
+    reload: bool = True
+
+
 class AppConfig(BaseModel):
     adapters: AdaptersSettings = AdaptersSettings()
     soft_delete: SoftDeleteSettings = SoftDeleteSettings()
+    api: ApiSettings = ApiSettings()
 
 
 def load_config(path: Path = _CONFIG_PATH) -> AppConfig:

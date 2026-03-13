@@ -11,7 +11,12 @@ adapters:
   # duckdb:
   #   path: data/ingredients.csv     # .csv | .parquet | .json | .arrow
 
-soft_delete:
+api:
+  host: 0.0.0.0
+  port: 8000
+  reload: true
+
+
   retention_days: 30    # durée de rétention en jours avant suppression physique
                         # 0   = suppression immédiate (pas de soft delete)
                         # null = conservation infinie (jamais supprimé physiquement)

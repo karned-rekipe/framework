@@ -3,6 +3,7 @@ import uvicorn
 
 from domain.ports.logger import Logger, LogLevel
 from infrastructure.api import create_api
+from infrastructure.config import load_config
 
 
 class _InterceptHandler(logging.Handler):
@@ -22,18 +23,36 @@ class _InterceptHandler(logging.Handler):
         self._logger.log(level, record.getMessage())
 
 
-def _setup_uvicorn_logging(logger: Logger) -> None:
+def _setup_logging(logger: Logger) -> None:
     handler = _InterceptHandler(logger)
-    for name in ("uvicorn", "uvicorn.access", "uvicorn.error"):
+    logging.root.handlers = [handler]
+    logging.root.setLevel(logging.DEBUG)
+    for name in ("uvicorn", "uvicorn.access", "uvicorn.error", "watchfiles"):
         log = logging.getLogger(name)
         log.handlers = [handler]
         log.propagate = False
 
 
+_UVICORN_LOG_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {},
+    "loggers": {
+        "uvicorn": {"handlers": [], "propagate": True},
+        "uvicorn.access": {"handlers": [], "propagate": True},
+        "uvicorn.error": {"handlers": [], "propagate": True},
+    },
+}
+
 api, logger = create_api()
-_setup_uvicorn_logging(logger)
+_setup_logging(logger)
 
 if __name__ == "__main__":
-    uvicorn.run("main_api:api", host="0.0.0.0", port=8000, reload=True)
-
-
+    config = load_config()
+    uvicorn.run(
+        "main_api:api",
+        host=config.api.host,
+        port=config.api.port,
+        reload=config.api.reload,
+        log_config=_UVICORN_LOG_CONFIG,
+    )
