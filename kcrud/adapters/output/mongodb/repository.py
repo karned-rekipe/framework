@@ -4,11 +4,11 @@ from typing import Any, Generic, Optional, TypeVar
 from uuid6 import UUID, uuid7
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from kcrud.adapters.output.mongodb_config import MongoDBConfig
+from kcrud.adapters.output.mongodb.config import MongoDBConfig
 from kcrud.domain.models.entity import Entity
 from kcrud.domain.ports.repository import Repository
 
-T = TypeVar("T", bound=Entity)
+T = TypeVar("T", bound = Entity)
 
 
 class MongoDBRepository(Repository[T], Generic[T]):
@@ -66,7 +66,6 @@ class MongoDBRepository(Repository[T], Generic[T]):
         if doc is None:
             raise KeyError(f"Entity with uuid {uuid} not found")
         clone = self._from_doc({**doc})
-        clone = replace(clone, uuid=uuid7())
+        clone = replace(clone, uuid = uuid7())
         await self._collection.insert_one(self._to_doc(clone))
         return clone
-
