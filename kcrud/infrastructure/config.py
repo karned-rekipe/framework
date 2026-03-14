@@ -4,13 +4,13 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 _DUCKDB_SUPPORTED_EXTENSIONS = {".csv", ".parquet", ".json", ".arrow"}
 
 
 class MongoDBSettings(BaseModel):
-    uri: str
+    uri: str | None = None
     db_name: str
     collection_name: str
 
@@ -44,8 +44,20 @@ class SoftDeleteSettings(BaseModel):
 class AdaptersSettings(BaseModel):
     logger: Literal["console"] = "console"
     repository: Literal["memory", "mongodb", "duckdb"] = "memory"
+    multitenant: bool = False
     mongodb: MongoDBSettings | None = None
     duckdb: DuckDBSettings | None = None
+
+    @model_validator(mode = "after")
+    def validate_repository_config(self) -> "AdaptersSettings":
+        if self.repository == "mongodb":
+            if self.mongodb is None:
+                raise ValueError("repository=mongodb mais aucune section [adapters.mongodb] dans config.yaml")
+            if not self.multitenant and not self.mongodb.uri:
+                raise ValueError("adapters.mongodb.uri est requis quand multitenant est false")
+        elif self.repository == "duckdb" and self.duckdb is None:
+            raise ValueError("repository=duckdb mais aucune section [adapters.duckdb] dans config.yaml")
+        return self
 
 
 class ApiSettings(BaseModel):
@@ -70,4 +82,3 @@ def load_config(path: Path) -> AppConfig:
     with open(path) as f:
         data = yaml.safe_load(f)
     return AppConfig.model_validate(data or {})
-
