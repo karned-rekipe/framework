@@ -5,7 +5,7 @@ from uuid6 import UUID, uuid7
 from kcrud.domain.models.entity import Entity
 from kcrud.domain.ports.repository import Repository
 
-T = TypeVar("T", bound=Entity)
+T = TypeVar("T", bound = Entity)
 
 
 class InMemoryRepository(Repository[T], Generic[T]):
@@ -36,7 +36,6 @@ class InMemoryRepository(Repository[T], Generic[T]):
         entity = self._store.get(uuid)
         if entity is None or entity.is_deleted:
             raise KeyError(f"Entity with uuid {uuid} not found")
-        clone = replace(entity, uuid=uuid7())
+        clone = replace(entity, uuid = uuid7())
         self._store[clone.uuid] = clone
         return clone
-
