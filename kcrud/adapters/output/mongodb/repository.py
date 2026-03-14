@@ -1,22 +1,48 @@
 from dataclasses import asdict, fields, replace
 from datetime import datetime
 from typing import Any, Generic, Optional, TypeVar
-from uuid6 import UUID, uuid7
-from motor.motor_asyncio import AsyncIOMotorClient
 
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
+from uuid6 import UUID, uuid7
+
+from kcrud.adapters.context import get_tenant_uri
 from kcrud.adapters.output.mongodb.config import MongoDBConfig
 from kcrud.domain.models.entity import Entity
+from kcrud.domain.ports.logger import Logger
 from kcrud.domain.ports.repository import Repository
 
 T = TypeVar("T", bound = Entity)
 
 
+class _MongoCollection:
+    def __init__(self, config: MongoDBConfig, logger: Logger) -> None:
+        self._config = config
+        self._logger = logger
+        self._client: AsyncIOMotorClient | None = None
+
+    async def __aenter__(self) -> AsyncIOMotorCollection:
+        effective_uri = get_tenant_uri() or self._config.uri
+        if not effective_uri:
+            raise ValueError("Aucune URI MongoDB : configurez uri ou activez le mode multitenant")
+        self._client = AsyncIOMotorClient(effective_uri)
+        self._logger.debug("🔌 MongoDB connected", db = self._config.db_name, collection = self._config.collection_name)
+        return self._client[self._config.db_name][self._config.collection_name]  # type: ignore[return-value]
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        if self._client:
+            self._client.close()
+            self._logger.debug("🔌 MongoDB disconnected", db = self._config.db_name,
+                               collection = self._config.collection_name)
+
+
 class MongoDBRepository(Repository[T], Generic[T]):
-    def __init__(self, config: MongoDBConfig, entity_class: type[T]) -> None:
+    def __init__(self, config: MongoDBConfig, entity_class: type[T], logger: Logger) -> None:
         self._config = config
         self._entity_class = entity_class
-        client = AsyncIOMotorClient(config.uri)
-        self._collection = client[config.db_name][config.collection_name]
+        self._logger = logger
+
+    def _collection(self) -> _MongoCollection:
+        return _MongoCollection(self._config, self._logger)
 
     def _to_doc(self, entity: T) -> dict[str, Any]:
         doc = asdict(entity)
@@ -41,31 +67,37 @@ class MongoDBRepository(Repository[T], Generic[T]):
         return self._entity_class(**doc)
 
     async def create(self, entity: T) -> T:
-        await self._collection.insert_one(self._to_doc(entity))
+        async with self._collection() as col:
+            await col.insert_one(self._to_doc(entity))
         return entity
 
     async def read(self, uuid: UUID) -> Optional[T]:
-        doc = await self._collection.find_one({"_id": str(uuid)})
+        async with self._collection() as col:
+            doc = await col.find_one({"_id": str(uuid)})
         return self._from_doc(doc) if doc else None
 
     async def update(self, entity: T) -> T:
-        await self._collection.replace_one({"_id": str(entity.uuid)}, self._to_doc(entity))
+        async with self._collection() as col:
+            await col.replace_one({"_id": str(entity.uuid)}, self._to_doc(entity))
         return entity
 
     async def delete(self, uuid: UUID) -> None:
-        await self._collection.delete_one({"_id": str(uuid)})
+        async with self._collection() as col:
+            await col.delete_one({"_id": str(uuid)})
 
     async def find_all(self) -> list[T]:
-        return [self._from_doc(doc) async for doc in self._collection.find({"deleted_at": None})]
+        async with self._collection() as col:
+            return [self._from_doc(doc) async for doc in col.find({"deleted_at": None})]
 
     async def find_deleted(self) -> list[T]:
-        return [self._from_doc(doc) async for doc in self._collection.find({"deleted_at": {"$ne": None}})]
+        async with self._collection() as col:
+            return [self._from_doc(doc) async for doc in col.find({"deleted_at": {"$ne": None}})]
 
     async def duplicate(self, uuid: UUID) -> T:
-        doc = await self._collection.find_one({"_id": str(uuid), "deleted_at": None})
-        if doc is None:
-            raise KeyError(f"Entity with uuid {uuid} not found")
-        clone = self._from_doc({**doc})
-        clone = replace(clone, uuid = uuid7())
-        await self._collection.insert_one(self._to_doc(clone))
+        async with self._collection() as col:
+            doc = await col.find_one({"_id": str(uuid), "deleted_at": None})
+            if doc is None:
+                raise KeyError(f"Entity with uuid {uuid} not found")
+            clone = replace(self._from_doc({**doc}), uuid = uuid7())
+            await col.insert_one(self._to_doc(clone))
         return clone
