@@ -15,6 +15,9 @@ T = TypeVar("T", bound = Entity)
 
 
 class _MongoCollection:
+    # Cache de clients par URI pour réutiliser le pool de connexions Motor
+    _clients: dict[str, AsyncIOMotorClient] = {}
+
     def __init__(self, config: MongoDBConfig, logger: Logger) -> None:
         self._config = config
         self._logger = logger
@@ -24,15 +27,33 @@ class _MongoCollection:
         effective_uri = get_tenant_uri() or self._config.uri
         if not effective_uri:
             raise ValueError("Aucune URI MongoDB : configurez uri ou activez le mode multitenant")
-        self._client = AsyncIOMotorClient(effective_uri)
-        self._logger.debug("🔌 MongoDB connected", db = self._config.db_name, collection = self._config.collection_name)
+
+        # Réutilise un client existant pour cette URI si possible, sinon en crée un nouveau.
+        if effective_uri in self._clients:
+            self._client = self._clients[effective_uri]
+        else:
+            self._client = AsyncIOMotorClient(effective_uri)
+            self._clients[effective_uri] = self._client
+            self._logger.debug(
+                "🔌 MongoDB client created",
+                db=self._config.db_name,
+                collection=self._config.collection_name,
+            )
+
+        self._logger.debug(
+            "🔌 MongoDB collection acquired",
+            db=self._config.db_name,
+            collection=self._config.collection_name,
+        )
         return self._client[self._config.db_name][self._config.collection_name]  # type: ignore[return-value]
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        if self._client:
-            self._client.close()
-            self._logger.debug("🔌 MongoDB disconnected", db = self._config.db_name,
-                               collection = self._config.collection_name)
+        # Ne ferme plus le client ici pour conserver le pool Motor.
+        self._logger.debug(
+            "🔌 MongoDB collection released",
+            db=self._config.db_name,
+            collection=self._config.collection_name,
+        )
 
 
 class MongoDBRepository(Repository[T], Generic[T]):
@@ -56,10 +77,11 @@ class MongoDBRepository(Repository[T], Generic[T]):
         doc = dict(doc)
         doc["uuid"] = UUID(doc.pop("_id"))
         entity_fields = {f.name for f in fields(self._entity_class)}
+        datetime_fields = {"created_at", "updated_at", "deleted_at"}
         for key in list(doc.keys()):
             if key not in entity_fields:
                 doc.pop(key)
-            elif isinstance(doc[key], str):
+            elif isinstance(doc[key], str) and key in datetime_fields:
                 try:
                     doc[key] = datetime.fromisoformat(doc[key])
                 except ValueError:
