@@ -9,7 +9,7 @@ import duckdb
 from kcrud.domain.models.entity import Entity
 from kcrud.domain.ports.repository import Repository
 
-T = TypeVar("T", bound=Entity)
+T = TypeVar("T", bound = Entity)
 
 _SUPPORTED_EXTENSIONS = {".csv", ".parquet", ".json", ".arrow"}
 
@@ -133,6 +133,5 @@ class DuckDBRepository(Repository[T], Generic[T]):
         entity = await self.read(uuid)
         if entity is None or entity.is_deleted:
             raise KeyError(f"Entity with uuid {uuid} not found")
-        clone = replace(entity, uuid=uuid7())
+        clone = replace(entity, uuid = uuid7())
         return await self.create(clone)
-
