@@ -3,16 +3,16 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "kcrud"
+name = "arclith"
 version = "0.1.0"
-description = "Generic async CRUD framework — domain, use cases, repositories, logger"
+description = "Hexagonal architecture framework — domain, use cases, repositories, adapters"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.13"
 authors = [
     { name = "Killian KOPP", email = "killiankopp@gmail.com" }
 ]
-keywords = ["crud", "async", "framework", "domain", "repository", "clean-architecture"]
+keywords = ["hexagonal-architecture", "async", "framework", "domain", "repository", "clean-architecture", "ddd"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -29,8 +29,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/karned-rekipe/framework"
-Repository = "https://github.com/karned-rekipe/framework"
+Homepage = "https://github.com/karned-rekipe/arclith"
+Repository = "https://github.com/karned-rekipe/arclith"
 
 [project.optional-dependencies]
 mongodb = ["motor==3.7.1"]
@@ -40,4 +40,4 @@ mcp     = ["fastmcp==3.1.0"]
 all     = ["motor==3.7.1", "duckdb==1.5.0", "fastapi==0.135.1", "uvicorn==0.41.0", "fastmcp==3.1.0"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["kcrud"]
+packages = ["arclith"]
