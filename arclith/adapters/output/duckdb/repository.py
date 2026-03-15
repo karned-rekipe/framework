@@ -7,7 +7,6 @@ from uuid6 import UUID, uuid7
 import duckdb
 
 from arclith.domain.models.entity import Entity
-from arclith.domain.ports.repository import Repository
 
 T = TypeVar("T", bound = Entity)
 
