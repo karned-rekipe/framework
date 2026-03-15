@@ -85,7 +85,9 @@ class MongoDBRepository(Repository[T], Generic[T]):
                 try:
                     doc[key] = datetime.fromisoformat(doc[key])
                 except ValueError:
-                    pass
+                    self._logger.warning(
+                        f"Failed to parse field '{key}' as datetime from value {doc[key]!r}; leaving as string."
+                    )
         return self._entity_class(**doc)
 
     async def create(self, entity: T) -> T:
