@@ -14,7 +14,7 @@ from kcrud.application.use_cases import (
     PurgeUseCase,
 )
 
-T = TypeVar("T", bound=Entity)
+T = TypeVar("T", bound = Entity)
 
 
 class BaseService(Generic[T]):
@@ -47,4 +47,3 @@ class BaseService(Generic[T]):
 
     async def purge(self) -> int:
         return await self._purge.execute()
-
