@@ -1,8 +1,9 @@
 from __future__ import annotations
 import logging
+from contextlib import AsyncExitStack, asynccontextmanager
 from functools import cached_property
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, AsyncIterator, TypeVar
 from arclith.domain.models.entity import Entity
 from arclith.domain.ports.logger import Logger, LogLevel
 from arclith.domain.ports.repository import Repository
@@ -16,9 +17,9 @@ _UVICORN_LOG_CONFIG: dict[str, Any] = {
     "disable_existing_loggers": False,
     "handlers": {},
     "loggers": {
-        "uvicorn": {"handlers": [], "propagate": True},
-        "uvicorn.access": {"handlers": [], "propagate": True},
-        "uvicorn.error": {"handlers": [], "propagate": True},
+        "uvicorn": {"handlers": [], "propagate": False},
+        "uvicorn.access": {"handlers": [], "propagate": False},
+        "uvicorn.error": {"handlers": [], "propagate": False},
     },
 }
 _LEVEL_MAP: dict[str, LogLevel] = {
@@ -33,7 +34,11 @@ class _UvicornLogInterceptHandler(logging.Handler):
         super().__init__()
         self._logger = logger
     def emit(self, record: logging.LogRecord) -> None:
-        self._logger.log(_LEVEL_MAP.get(record.levelname, LogLevel.INFO), record.getMessage())
+        self._logger.log(
+            _LEVEL_MAP.get(record.levelname, LogLevel.INFO),
+            record.getMessage(),
+            source=record.name,
+        )
 class Arclith:
     def __init__(self, config_path: str | Path) -> None:
         self.config: AppConfig = load_config(Path(config_path))
@@ -46,13 +51,23 @@ class Arclith:
         return build_repository(self.config, entity_class, self.logger)
     def fastapi(self, **kwargs: Any) -> "FastAPI":
         from fastapi import FastAPI
-        return FastAPI(**kwargs)
+        user_lifespan = kwargs.pop("lifespan", None)
+        arclith_self = self
+        @asynccontextmanager
+        async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+            arclith_self._setup_uvicorn_logging()
+            if user_lifespan is not None:
+                async with AsyncExitStack() as stack:
+                    await stack.enter_async_context(user_lifespan(app))
+                    yield
+            else:
+                yield
+        return FastAPI(lifespan=_lifespan, **kwargs)
     def fastmcp(self, name: str, **kwargs: Any) -> "fastmcp.FastMCP":
         import fastmcp
         return fastmcp.FastMCP(name, **kwargs)
     def run_api(self, app: "FastAPI | str") -> None:
         import uvicorn
-        self._setup_uvicorn_logging()
         uvicorn.run(
             app,  # type: ignore[arg-type]
             host=self.config.api.host,
@@ -67,8 +82,8 @@ class Arclith:
     def _setup_uvicorn_logging(self) -> None:
         handler = _UvicornLogInterceptHandler(self.logger)
         logging.root.handlers = [handler]
-        logging.root.setLevel(logging.DEBUG)
         for name in ("uvicorn", "uvicorn.access", "uvicorn.error", "watchfiles"):
             log = logging.getLogger(name)
+            log.setLevel(logging.DEBUG)
             log.handlers = [handler]
             log.propagate = False
