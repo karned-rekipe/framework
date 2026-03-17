@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from uuid6 import uuid7, UUID
 
 
@@ -12,6 +13,13 @@ class Entity(BaseModel):
         description="Identifiant unique de l'entité (UUIDv7, ordonné dans le temps).",
         examples=["01951234-5678-7abc-def0-123456789abc"],
     )
+
+    @field_validator("uuid", mode="before")
+    @classmethod
+    def coerce_uuid(cls, v: Any) -> UUID:
+        if isinstance(v, UUID):
+            return v
+        return UUID(str(v))
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         description="Date et heure de création de l'entité (UTC).",
