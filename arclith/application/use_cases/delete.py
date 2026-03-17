@@ -1,4 +1,3 @@
-from dataclasses import replace
 from datetime import datetime, timezone
 from typing import Generic, TypeVar
 from uuid6 import UUID
@@ -29,7 +28,7 @@ class DeleteUseCase(Generic[T]):
             return
 
         now = datetime.now(timezone.utc)
-        entity = replace(entity, deleted_at=now, deleted_by=deleted_by, updated_at=now)
+        entity = entity.model_copy(update={"deleted_at": now, "deleted_by": deleted_by, "updated_at": now})
         await self._repository.update(entity)
         self._logger.info("🗑️ Entity soft deleted", uuid=str(uuid), retention_days=self._retention_days)
 

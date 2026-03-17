@@ -1,4 +1,3 @@
-from dataclasses import asdict, fields, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Generic, Optional, TypeVar
@@ -7,6 +6,7 @@ from uuid6 import UUID, uuid7
 import duckdb
 
 from arclith.domain.models.entity import Entity
+from arclith.domain.ports.repository import Repository
 
 T = TypeVar("T", bound = Entity)
 
@@ -71,7 +71,7 @@ class DuckDBRepository(Repository[T], Generic[T]):
         _write_file(self._con, self._table, self._path)
 
     def _row_to_entity(self, row: dict[str, Any]) -> T:
-        entity_fields = {f.name for f in fields(self._entity_class)}
+        entity_fields = set(self._entity_class.model_fields.keys())
         cleaned = {k: v for k, v in row.items() if k in entity_fields}
         for k, v in cleaned.items():
             if isinstance(v, str):
@@ -84,7 +84,7 @@ class DuckDBRepository(Repository[T], Generic[T]):
         return self._entity_class(**cleaned)
 
     def _entity_to_row(self, entity: T) -> dict[str, Any]:
-        row = asdict(entity)
+        row = entity.model_dump()
         row["uuid"] = str(row["uuid"])
         for k, v in row.items():
             if isinstance(v, datetime):
@@ -132,5 +132,5 @@ class DuckDBRepository(Repository[T], Generic[T]):
         entity = await self.read(uuid)
         if entity is None or entity.is_deleted:
             raise KeyError(f"Entity with uuid {uuid} not found")
-        clone = replace(entity, uuid = uuid7())
+        clone = entity.model_copy(update={"uuid": uuid7()})
         return await self.create(clone)
