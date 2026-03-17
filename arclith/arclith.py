@@ -79,6 +79,8 @@ class Arclith:
         mcp.run(transport="stdio")
     def run_mcp_sse(self, mcp: "fastmcp.FastMCP") -> None:
         mcp.run(transport="sse", host=self.config.mcp.host, port=self.config.mcp.port)
+    def run_mcp_http(self, mcp: "fastmcp.FastMCP") -> None:
+        mcp.run(transport="streamable-http", host=self.config.mcp.host, port=self.config.mcp.port)
     def _setup_uvicorn_logging(self) -> None:
         handler = _UvicornLogInterceptHandler(self.logger)
         logging.root.handlers = [handler]
