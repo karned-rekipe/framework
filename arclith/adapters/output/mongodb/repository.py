@@ -57,7 +57,8 @@ class _MongoCollection:
 
 class MongoDBRepository(Repository[T], Generic[T]):
     def __init__(self, config: MongoDBConfig, entity_class: type[T], logger: Logger) -> None:
-        self._config = config
+        resolved_name = config.collection_name or entity_class.__name__.lower()
+        self._config = MongoDBConfig(uri=config.uri, db_name=config.db_name, collection_name=resolved_name)
         self._entity_class = entity_class
         self._logger = logger
 
