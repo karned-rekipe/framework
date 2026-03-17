@@ -1,4 +1,3 @@
-from dataclasses import replace
 from typing import Generic, Optional, TypeVar
 from uuid6 import UUID, uuid7
 
@@ -36,6 +35,6 @@ class InMemoryRepository(Repository[T], Generic[T]):
         entity = self._store.get(uuid)
         if entity is None or entity.is_deleted:
             raise KeyError(f"Entity with uuid {uuid} not found")
-        clone = replace(entity, uuid = uuid7())
+        clone = entity.model_copy(update={"uuid": uuid7()})
         self._store[clone.uuid] = clone
         return clone

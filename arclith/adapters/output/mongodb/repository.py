@@ -1,4 +1,3 @@
-from dataclasses import asdict, fields, replace
 from datetime import datetime
 from typing import Any, Generic, Optional, TypeVar
 
@@ -58,7 +57,8 @@ class _MongoCollection:
 
 class MongoDBRepository(Repository[T], Generic[T]):
     def __init__(self, config: MongoDBConfig, entity_class: type[T], logger: Logger) -> None:
-        self._config = config
+        resolved_name = config.collection_name or entity_class.__name__.lower()
+        self._config = MongoDBConfig(uri=config.uri, db_name=config.db_name, collection_name=resolved_name)
         self._entity_class = entity_class
         self._logger = logger
 
@@ -66,7 +66,7 @@ class MongoDBRepository(Repository[T], Generic[T]):
         return _MongoCollection(self._config, self._logger)
 
     def _to_doc(self, entity: T) -> dict[str, Any]:
-        doc = asdict(entity)
+        doc = entity.model_dump()
         doc["_id"] = str(doc.pop("uuid"))
         for key, value in doc.items():
             if isinstance(value, datetime):
@@ -76,7 +76,7 @@ class MongoDBRepository(Repository[T], Generic[T]):
     def _from_doc(self, doc: dict[str, Any]) -> T:
         doc = dict(doc)
         doc["uuid"] = UUID(doc.pop("_id"))
-        entity_fields = {f.name for f in fields(self._entity_class)}
+        entity_fields = set(self._entity_class.model_fields.keys())
         datetime_fields = {"created_at", "updated_at", "deleted_at"}
         for key in list(doc.keys()):
             if key not in entity_fields:
@@ -122,6 +122,6 @@ class MongoDBRepository(Repository[T], Generic[T]):
             doc = await col.find_one({"_id": str(uuid), "deleted_at": None})
             if doc is None:
                 raise KeyError(f"Entity with uuid {uuid} not found")
-            clone = replace(self._from_doc({**doc}), uuid = uuid7())
+            clone = self._from_doc({**doc}).model_copy(update={"uuid": uuid7()})
             await col.insert_one(self._to_doc(clone))
         return clone

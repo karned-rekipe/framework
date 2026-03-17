@@ -12,7 +12,7 @@ _DUCKDB_SUPPORTED_EXTENSIONS = {".csv", ".parquet", ".json", ".arrow"}
 class MongoDBSettings(BaseModel):
     uri: str | None = None
     db_name: str
-    collection_name: str
+    collection_name: str | None = None
 
 
 class DuckDBSettings(BaseModel):
@@ -21,7 +21,10 @@ class DuckDBSettings(BaseModel):
     @field_validator("path")
     @classmethod
     def must_be_supported_format(cls, v: str) -> str:
-        ext = Path(v).suffix.lower()
+        p = Path(v)
+        if p.is_dir() or v.endswith("/"):
+            return v
+        ext = p.suffix.lower()
         if ext not in _DUCKDB_SUPPORTED_EXTENSIONS:
             raise ValueError(
                 f"Format '{ext}' non supporté par DuckDB. "

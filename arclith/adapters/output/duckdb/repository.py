@@ -1,4 +1,3 @@
-from dataclasses import asdict, fields, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Generic, Optional, TypeVar
@@ -7,21 +6,20 @@ from uuid6 import UUID, uuid7
 import duckdb
 
 from arclith.domain.models.entity import Entity
+from arclith.domain.ports.repository import Repository
 
 T = TypeVar("T", bound = Entity)
 
 _SUPPORTED_EXTENSIONS = {".csv", ".parquet", ".json", ".arrow"}
 
 
-def _validate_file(path: Path) -> None:
+def _validate_extension(path: Path) -> None:
     ext = path.suffix.lower()
     if ext not in _SUPPORTED_EXTENSIONS:
         raise ValueError(
             f"Format '{ext}' non supporté. "
             f"Formats acceptés : {', '.join(sorted(_SUPPORTED_EXTENSIONS))}"
         )
-    if not path.exists():
-        raise FileNotFoundError(f"Fichier introuvable : {path}")
 
 
 def _read_file(con: duckdb.DuckDBPyConnection, path: Path) -> duckdb.DuckDBPyRelation:
@@ -55,13 +53,32 @@ def _write_file(con: duckdb.DuckDBPyConnection, table: str, path: Path) -> None:
 
 
 class DuckDBRepository(Repository[T], Generic[T]):
-    def __init__(self, path: str | Path, entity_class: type[T]) -> None:
-        self._path = Path(path)
+    def __init__(self, path: str | Path, entity_class: type[T], default_ext: str = ".csv") -> None:
+        base = Path(path)
+        is_dir_path = base.is_dir() or not base.suffix
+        self._path = base / f"{entity_class.__name__.lower()}{default_ext}" if is_dir_path else base
         self._entity_class = entity_class
         self._table = entity_class.__name__.lower()
-        _validate_file(self._path)
+        _validate_extension(self._path)
         self._con = duckdb.connect()
+        if not self._path.exists():
+            self._create_empty_file()
         self._load()
+
+    def _create_empty_file(self) -> None:
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        columns = list(self._entity_class.model_fields.keys())
+        ext = self._path.suffix.lower()
+        match ext:
+            case ".csv":
+                self._path.write_text(",".join(columns) + "\n")
+            case ".json":
+                self._path.write_text("[]")
+            case _:
+                raise FileNotFoundError(
+                    f"Fichier introuvable : {self._path}. "
+                    f"Création automatique non supportée pour le format '{ext}'."
+                )
 
     def _load(self) -> None:
         rel = _read_file(self._con, self._path)
@@ -71,7 +88,7 @@ class DuckDBRepository(Repository[T], Generic[T]):
         _write_file(self._con, self._table, self._path)
 
     def _row_to_entity(self, row: dict[str, Any]) -> T:
-        entity_fields = {f.name for f in fields(self._entity_class)}
+        entity_fields = set(self._entity_class.model_fields.keys())
         cleaned = {k: v for k, v in row.items() if k in entity_fields}
         for k, v in cleaned.items():
             if isinstance(v, str):
@@ -84,7 +101,7 @@ class DuckDBRepository(Repository[T], Generic[T]):
         return self._entity_class(**cleaned)
 
     def _entity_to_row(self, entity: T) -> dict[str, Any]:
-        row = asdict(entity)
+        row = entity.model_dump()
         row["uuid"] = str(row["uuid"])
         for k, v in row.items():
             if isinstance(v, datetime):
@@ -132,5 +149,5 @@ class DuckDBRepository(Repository[T], Generic[T]):
         entity = await self.read(uuid)
         if entity is None or entity.is_deleted:
             raise KeyError(f"Entity with uuid {uuid} not found")
-        clone = replace(entity, uuid = uuid7())
+        clone = entity.model_copy(update={"uuid": uuid7()})
         return await self.create(clone)
