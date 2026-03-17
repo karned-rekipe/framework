@@ -37,7 +37,6 @@ class _UvicornLogInterceptHandler(logging.Handler):
         self._logger.log(
             _LEVEL_MAP.get(record.levelname, LogLevel.INFO),
             record.getMessage(),
-            source=record.name,
         )
 class Arclith:
     def __init__(self, config_path: str | Path) -> None:
@@ -81,7 +80,6 @@ class Arclith:
         mcp.run(transport="sse", host=self.config.mcp.host, port=self.config.mcp.port)
     def _setup_uvicorn_logging(self) -> None:
         handler = _UvicornLogInterceptHandler(self.logger)
-        logging.root.handlers = [handler]
         for name in ("uvicorn", "uvicorn.access", "uvicorn.error", "watchfiles"):
             log = logging.getLogger(name)
             log.setLevel(logging.DEBUG)
