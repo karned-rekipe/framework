@@ -1,5 +1,6 @@
 from __future__ import annotations
 import logging
+import traceback
 from contextlib import AsyncExitStack, asynccontextmanager
 from functools import cached_property
 from pathlib import Path
@@ -36,8 +37,8 @@ class _UvicornLogInterceptHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         message = record.getMessage()
         if record.exc_info:
-            import traceback
-            tb = "".join(traceback.format_exception(*record.exc_info))
+            exc = record.exc_info[1]
+            tb = "".join(traceback.format_exception(exc))
             message = f"{message}\n{tb}"
         self._logger.log(
             _LEVEL_MAP.get(record.levelname, LogLevel.INFO),
