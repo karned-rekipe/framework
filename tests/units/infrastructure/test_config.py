@@ -96,3 +96,8 @@ def test_duckdb_requires_section():
     with pytest.raises(ValidationError):
         AppConfig.model_validate({"adapters": {"repository": "duckdb"}})
 
+
+def test_mongodb_requires_section():
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
+        AppConfig.model_validate({"adapters": {"repository": "mongodb"}})

@@ -1,7 +1,6 @@
 import uuid as stdlib_uuid
 from datetime import datetime, timezone
 
-import pytest
 from uuid6 import UUID, uuid7
 
 from tests.units.conftest import DummyEntity
@@ -14,7 +13,7 @@ def test_default_uuid_is_uuid6():
 
 def test_uuid_from_string():
     uid = str(uuid7())
-    e = DummyEntity(uuid=uid)
+    e = DummyEntity(uuid = uid)  # type: ignore[arg-type]  — tests the field_validator str coercion
     assert isinstance(e.uuid, UUID)
     assert str(e.uuid) == uid
 
@@ -62,3 +61,8 @@ def test_model_copy_preserves_type():
     assert copy.uuid == e.uuid
     assert copy.name == "b"
 
+
+def test_uuid_passthrough_when_already_uuid6():
+    uid = uuid7()
+    e = DummyEntity(uuid = uid)
+    assert e.uuid is uid

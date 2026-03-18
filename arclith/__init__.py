@@ -1,16 +1,17 @@
 from typing import TYPE_CHECKING
-from arclith.domain.models.entity import Entity
-from arclith.domain.ports.repository import Repository
-from arclith.domain.ports.logger import Logger, LogLevel
-from arclith.application.services.base_service import BaseService
+
 from arclith.adapters.input.schemas.base_schema import BaseSchema
 from arclith.adapters.output.memory.repository import InMemoryRepository
 from arclith.adapters.output.mongodb.config import MongoDBConfig
-from arclith.infrastructure.config import AppConfig, load_config
+from arclith.application.services.base_service import BaseService
 from arclith.arclith import Arclith
+from arclith.domain.models.entity import Entity
+from arclith.domain.ports.logger import Logger, LogLevel
+from arclith.domain.ports.repository import Repository
+from arclith.infrastructure.config import AppConfig, load_config
 
 if TYPE_CHECKING:  # pragma: no cover - for static type checkers only
-    from arclith.adapters.output.console.logger import ConsoleLogger as _ConsoleLogger
+    from arclith.adapters.output.console.logger import ConsoleLogger as _ConsoleLogger, ConsoleLogger  # noqa: F401
 
 __all__ = [
     "Entity",
