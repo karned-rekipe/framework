@@ -34,6 +34,7 @@ class _UvicornLogInterceptHandler(logging.Handler):
     def __init__(self, logger: Logger) -> None:
         super().__init__()
         self._logger = logger
+
     def emit(self, record: logging.LogRecord) -> None:
         message = record.getMessage()
         if record.exc_info:
