@@ -14,7 +14,7 @@ class LogLevel(Enum):
 class Logger(ABC):
     @abstractmethod
     def log(self, level: LogLevel, message: str, **metadata: Any) -> None:
-        pass
+        pass  # pragma: no cover
 
     def debug(self, message: str, **metadata: Any) -> None:
         self.log(LogLevel.DEBUG, message, **metadata)

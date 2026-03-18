@@ -1,16 +1,19 @@
 from __future__ import annotations
+
 import logging
 import traceback
 from contextlib import AsyncExitStack, asynccontextmanager
 from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, AsyncIterator, TypeVar
+
 from arclith.domain.models.entity import Entity
 from arclith.domain.ports.logger import Logger, LogLevel
 from arclith.domain.ports.repository import Repository
 from arclith.infrastructure.config import AppConfig, load_config
+
 if TYPE_CHECKING:
-    import fastmcp
+    import fastmcp as _fastmcp
     from fastapi import FastAPI
 T = TypeVar("T", bound=Entity)
 _UVICORN_LOG_CONFIG: dict[str, Any] = {
@@ -69,7 +72,8 @@ class Arclith:
             else:
                 yield
         return FastAPI(lifespan=_lifespan, **kwargs)
-    def fastmcp(self, name: str, **kwargs: Any) -> "fastmcp.FastMCP":
+
+    def fastmcp(self, name: str, **kwargs: Any) -> "_fastmcp.FastMCP":
         import fastmcp
         return fastmcp.FastMCP(name, **kwargs)
     def run_api(self, app: "FastAPI | str") -> None:
@@ -81,11 +85,14 @@ class Arclith:
             reload=self.config.api.reload if isinstance(app, str) else False,
             log_config=_UVICORN_LOG_CONFIG,
         )
-    def run_mcp_stdio(self, mcp: "fastmcp.FastMCP") -> None:
+
+    def run_mcp_stdio(self, mcp: "_fastmcp.FastMCP") -> None:
         mcp.run(transport="stdio")
-    def run_mcp_sse(self, mcp: "fastmcp.FastMCP") -> None:
+
+    def run_mcp_sse(self, mcp: "_fastmcp.FastMCP") -> None:
         mcp.run(transport="sse", host=self.config.mcp.host, port=self.config.mcp.port)
-    def run_mcp_http(self, mcp: "fastmcp.FastMCP") -> None:
+
+    def run_mcp_http(self, mcp: "_fastmcp.FastMCP") -> None:
         mcp.run(transport="streamable-http", host=self.config.mcp.host, port=self.config.mcp.port)
     def _setup_uvicorn_logging(self) -> None:
         handler = _UvicornLogInterceptHandler(self.logger)

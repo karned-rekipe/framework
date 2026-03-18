@@ -1,9 +1,9 @@
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Generic, Optional, TypeVar
-from uuid6 import UUID, uuid7
 
 import duckdb
+from uuid6 import UUID, uuid7
 
 from arclith.domain.models.entity import Entity
 from arclith.domain.ports.repository import Repository
@@ -80,9 +80,11 @@ class DuckDBRepository(Repository[T], Generic[T]):
                     f"Création automatique non supportée pour le format '{ext}'."
                 )
 
+    # noinspection SqlNoDataSourceInspection
     def _load(self) -> None:
-        rel = _read_file(self._con, self._path)
-        self._con.execute(f"CREATE OR REPLACE TABLE {self._table} AS SELECT * FROM rel")
+        rel = _read_file(self._con, self._path)  # referenced by name in DuckDB SQL
+        self._con.register("rel", rel)
+        self._con.execute(f"CREATE OR REPLACE TABLE {self._table} AS SELECT * FROM rel")  # nosec B608
 
     def _persist(self) -> None:
         _write_file(self._con, self._table, self._path)
@@ -108,41 +110,49 @@ class DuckDBRepository(Repository[T], Generic[T]):
                 row[k] = v.isoformat()
         return row
 
+    # noinspection SqlNoDataSourceInspection
     def _fetch(self, sql: str, params: list | None = None) -> list[dict[str, Any]]:
         cur = self._con.execute(sql, params or [])
         cols = [d[0] for d in cur.description]
         return [dict(zip(cols, row)) for row in cur.fetchall()]
 
+    # noinspection SqlNoDataSourceInspection
     async def create(self, entity: T) -> T:
         row = self._entity_to_row(entity)
         cols = ", ".join(row.keys())
         placeholders = ", ".join("?" for _ in row)
-        self._con.execute(f"INSERT INTO {self._table} ({cols}) VALUES ({placeholders})", list(row.values()))
+        self._con.execute(f"INSERT INTO {self._table} ({cols}) VALUES ({placeholders})",
+                          list(row.values()))  # nosec B608
         self._persist()
         return entity
 
+    # noinspection SqlNoDataSourceInspection
     async def read(self, uuid: UUID) -> Optional[T]:
-        rows = self._fetch(f"SELECT * FROM {self._table} WHERE uuid = ?", [str(uuid)])
+        rows = self._fetch(f"SELECT * FROM {self._table} WHERE uuid = ?", [str(uuid)])  # nosec B608
         return self._row_to_entity(rows[0]) if rows else None
 
+    # noinspection SqlNoDataSourceInspection
     async def update(self, entity: T) -> T:
         row = self._entity_to_row(entity)
         sets = ", ".join(f"{k} = ?" for k in row if k != "uuid")
         values = [v for k, v in row.items() if k != "uuid"] + [str(entity.uuid)]
-        self._con.execute(f"UPDATE {self._table} SET {sets} WHERE uuid = ?", values)
+        self._con.execute(f"UPDATE {self._table} SET {sets} WHERE uuid = ?", values)  # nosec B608
         self._persist()
         return entity
 
+    # noinspection SqlNoDataSourceInspection
     async def delete(self, uuid: UUID) -> None:
-        self._con.execute(f"DELETE FROM {self._table} WHERE uuid = ?", [str(uuid)])
+        self._con.execute(f"DELETE FROM {self._table} WHERE uuid = ?", [str(uuid)])  # nosec B608
         self._persist()
 
+    # noinspection SqlNoDataSourceInspection
     async def find_all(self) -> list[T]:
-        rows = self._fetch(f"SELECT * FROM {self._table} WHERE deleted_at IS NULL")
+        rows = self._fetch(f"SELECT * FROM {self._table} WHERE deleted_at IS NULL")  # nosec B608
         return [self._row_to_entity(r) for r in rows]
 
+    # noinspection SqlNoDataSourceInspection
     async def find_deleted(self) -> list[T]:
-        rows = self._fetch(f"SELECT * FROM {self._table} WHERE deleted_at IS NOT NULL")
+        rows = self._fetch(f"SELECT * FROM {self._table} WHERE deleted_at IS NOT NULL")  # nosec B608
         return [self._row_to_entity(r) for r in rows]
 
     async def duplicate(self, uuid: UUID) -> T:

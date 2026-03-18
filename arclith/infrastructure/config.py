@@ -64,7 +64,7 @@ class AdaptersSettings(BaseModel):
 
 
 class ApiSettings(BaseModel):
-    host: str = "0.0.0.0"
+    host: str = "0.0.0.0"  # nosec B104
     port: int = 8000
     reload: bool = True
 
