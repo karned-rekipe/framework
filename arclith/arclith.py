@@ -34,9 +34,14 @@ class _UvicornLogInterceptHandler(logging.Handler):
         super().__init__()
         self._logger = logger
     def emit(self, record: logging.LogRecord) -> None:
+        message = record.getMessage()
+        if record.exc_info:
+            import traceback
+            tb = "".join(traceback.format_exception(*record.exc_info))
+            message = f"{message}\n{tb}"
         self._logger.log(
             _LEVEL_MAP.get(record.levelname, LogLevel.INFO),
-            record.getMessage(),
+            message,
         )
 class Arclith:
     def __init__(self, config_path: str | Path) -> None:
