@@ -82,7 +82,8 @@ class DuckDBRepository(Repository[T], Generic[T]):
 
     # noinspection SqlNoDataSourceInspection
     def _load(self) -> None:
-        rel = _read_file(self._con, self._path)  # noqa: F841  — referenced by name in DuckDB SQL
+        rel = _read_file(self._con, self._path)  # referenced by name in DuckDB SQL
+        self._con.register("rel", rel)
         self._con.execute(f"CREATE OR REPLACE TABLE {self._table} AS SELECT * FROM rel")  # nosec B608
 
     def _persist(self) -> None:
