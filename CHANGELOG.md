@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.1] — 2026-03-18
+
+### Fixed
+
+- `DuckDBRepository._load` : `rel` est désormais enregistré via `con.register("rel", rel)` avant son utilisation dans la requête SQL — correction d'un bug potentiel de résolution de variable.
+- `_UvicornLogInterceptHandler.emit` : utilise `traceback.format_exception(exc)` (signature Python 3.10+) à la place de `format_exception(*record.exc_info)`.
+- `repository_factory` : assertions de vérification null ajoutées sur les configurations `mongodb` et `duckdb` avant utilisation.
+
+### Changed
+
+- `domain/ports/repository.py`, `domain/ports/logger.py` : méthodes abstraites annotées `# pragma: no cover`.
+- `arclith/__init__.py` : ordonnancement des imports aligné ; `ConsoleLogger` réexporté pour les type checkers.
+- `infrastructure/config.py` : `# nosec B104` sur le host par défaut `0.0.0.0`.
+
+---
+
 ## [0.2.0] — 2026-03-18
 
 ### Breaking changes
