@@ -1,0 +1,133 @@
+# AGENTS.md — framework (`arclith`)
+
+## Contexte global
+
+`arclith` est le framework hexagonal partagé par tous les repos de Rekipe. Il est publié sur PyPI (`arclith>=0.2.0`) et
+ne doit contenir aucune logique métier. Les repos consommateurs (`recipe/`, `_sample/`) l'importent en dépendance.
+
+## Rôle
+
+Fournir les primitives réutilisables pour construire des services en architecture hexagonale :
+
+- Modèle de base `Entity` (UUIDv7, audit, soft-delete, optimistic locking)
+- Port `Repository[T]` (CRUD async + `find_deleted` + `duplicate`)
+- `BaseService[T]` qui câble les use cases standards
+- `Arclith` : bootstrap, config, FastAPI, FastMCP, Uvicorn
+- Trois implémentations de `Repository` : memory, MongoDB (motor), DuckDB
+
+## Règles de développement
+
+- **Pas d'import applicatif** dans `arclith/` — zéro référence à un domaine métier.
+- `domain/` n'importe que `pydantic` et `uuid6`.
+- Tout nouveau adaptateur doit être branché dans `build_repository()`.
+- Dépendances groupées : installer uniquement ce qui est nécessaire (`[mongodb]`, `[duckdb]`, `[fastapi]`, `[mcp]`,
+  `[all]`).
+- Coverage **≥ 90 %** : `make coverage`.
+- Pre-commit gate : `make precommit` (lint + typecheck + security).
+
+## Architecture
+
+```
+arclith/
+  domain/
+    models/entity.py          # Entity (UUIDv7, audit, soft-delete, version)
+    ports/repository.py       # Repository[T] (ABC, CRUD + find_deleted + duplicate)
+    ports/logger.py           # Logger (ABC)
+  application/
+    use_cases/                # CreateUseCase, ReadUseCase, UpdateUseCase, DeleteUseCase,
+                              # FindAllUseCase, DuplicateUseCase, PurgeUseCase
+    services/base_service.py  # BaseService[T] — câble les 7 use cases
+  adapters/
+    context.py                # set_tenant_uri / get_tenant_uri (ContextVar multitenant)
+    input/fastmcp/dependencies.py  # make_inject_tenant_uri()
+    output/
+      memory/repository.py    # InMemoryRepository[T]
+      mongodb/repository.py   # MongoDBRepository[T] (motor)
+      mongodb/config.py       # MongoDBConfig
+      duckdb/repository.py    # DuckDBRepository[T]
+      console/logger.py       # ConsoleLogger (loguru)
+  infrastructure/
+    config.py                 # AppConfig + load_config() — valide config.yaml
+    repository_factory.py     # build_repository(config, entity_class, logger)
+  arclith.py                  # Arclith — point d'entrée unique
+```
+
+### Flux de données
+
+```
+config.yaml → load_config() → AppConfig
+Arclith.__init__(config_path)
+  └─ .repository(entity_class) → build_repository() → InMemory|MongoDB|DuckDB Repository
+  └─ .fastapi(**kwargs) → FastAPI avec lifespan
+  └─ .fastmcp(name) → FastMCP
+  └─ .run_api() / .run_mcp_sse() / .run_mcp_stdio() / .run_mcp_http()
+```
+
+## Primitives détaillées
+
+### `Entity` (`domain/models/entity.py`)
+
+| Champ                       | Type               | Description                        |
+|-----------------------------|--------------------|------------------------------------|
+| `uuid`                      | `UUID` (v7)        | ID time-ordered, auto-généré       |
+| `created_at` / `updated_at` | `datetime` UTC     | Audit temporel                     |
+| `created_by` / `updated_by` | `str \| None`      | Audit acteur                       |
+| `deleted_at` / `deleted_by` | `datetime \| None` | Soft-delete                        |
+| `version`                   | `int` (défaut 1)   | Optimistic locking                 |
+| `is_deleted`                | property           | `True` si `deleted_at is not None` |
+
+### `Repository[T]` (`domain/ports/repository.py`)
+
+Méthodes abstraites : `create`, `read`, `update`, `delete`, `find_all`, `find_deleted`, `duplicate`.
+
+### `BaseService[T]` (`application/services/base_service.py`)
+
+Constructeur : `__init__(repository, logger, retention_days=None)`.  
+Méthodes publiques : `create`, `read`, `update`, `delete`, `find_all`, `duplicate`, `purge`.
+
+### `Arclith` (`arclith.py`)
+
+| Méthode                     | Retour          | Usage                              |
+|-----------------------------|-----------------|------------------------------------|
+| `.repository(entity_class)` | `Repository[T]` | Instancie via `build_repository()` |
+| `.fastapi(**kwargs)`        | `FastAPI`       | Crée l'app avec lifespan           |
+| `.fastmcp(name)`            | `FastMCP`       | Crée le serveur MCP                |
+| `.run_api(app)`             | —               | Lance Uvicorn (config `api:`)      |
+| `.run_mcp_stdio(mcp)`       | —               | Transport stdio                    |
+| `.run_mcp_sse(mcp)`         | —               | Transport SSE (config `mcp:`)      |
+| `.run_mcp_http(mcp)`        | —               | Transport streamable-HTTP          |
+
+### `AppConfig` (`infrastructure/config.py`)
+
+Sections validées depuis `config.yaml` :
+
+| Section       | Clés notables                                                                                        |
+|---------------|------------------------------------------------------------------------------------------------------|
+| `adapters`    | `repository` (memory/mongodb/duckdb), `multitenant`, `mongodb.uri`, `mongodb.db_name`, `duckdb.path` |
+| `api`         | `host`, `port`, `reload`                                                                             |
+| `mcp`         | `host`, `port`                                                                                       |
+| `soft_delete` | `retention_days` (None = ∞, 0 = immédiat)                                                            |
+
+## Conventions
+
+- Nommage adaptateurs output : `InMemory<Entity>Repository`, `MongoDB<Entity>Repository`, `DuckDB<Entity>Repository`.
+- Logger injecté partout — jamais `print()` ni `logging` directement dans les use cases.
+- `PurgeUseCase` : supprime physiquement les entités dont `deleted_at` est dépassé de `retention_days` jours.
+
+## Commandes utiles
+
+```bash
+make setup       # uv sync --group dev --extra all
+make precommit   # lint + typecheck + security
+make quality     # lint + security + complexity + typecheck + coverage (≥90 %)
+make test        # pytest -v
+```
+
+## Fichiers à lire en premier
+
+1. `arclith/domain/models/entity.py` — comprendre la base de toute entité
+2. `arclith/domain/ports/repository.py` — le contrat de persistance
+3. `arclith/application/services/base_service.py` — les use cases câblés
+4. `arclith/infrastructure/config.py` — la config validée
+5. `arclith/infrastructure/repository_factory.py` — le routage des implémentations
+
