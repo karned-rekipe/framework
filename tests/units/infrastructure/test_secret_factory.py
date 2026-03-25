@@ -28,7 +28,7 @@ def test_builds_yaml_resolver(tmp_path: Path) -> None:
         }
     }
     from arclith.adapters.output.yaml.secret_adapter import YamlSecretAdapter
-    assert isinstance(build_secret_resolver(data, tmp_path), YamlSecretAdapter)
+    assert isinstance(build_secret_resolver(data), YamlSecretAdapter)
 
 
 def test_yaml_resolver_defaults_to_secrets_yaml(tmp_path: Path) -> None:
