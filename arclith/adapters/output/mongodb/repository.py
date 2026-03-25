@@ -1,7 +1,6 @@
 from datetime import datetime
-from typing import Any, Generic, Optional, TypeVar
-
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
+from typing import Any, Generic, Optional, TypeVar
 from uuid6 import UUID, uuid7
 
 from arclith.adapters.context import get_tenant_uri
@@ -44,7 +43,7 @@ class _MongoCollection:
             db=self._config.db_name,
             collection=self._config.collection_name,
         )
-        return self._client[self._config.db_name][self._config.collection_name]  # type: ignore[return-value]
+        return self._client[self._config.db_name][self._config.collection_name]  # type: ignore[return-value, index]
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         # Ne ferme plus le client ici pour conserver le pool Motor.
