@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.3.0] — 2026-03-25
+
+### Added
+
+- `domain/ports/secret_resolver.py` : port `SecretResolver` (ABC) — contrat pour tous les résolveurs de secrets.
+- `infrastructure/secret_factory.py` : `build_secret_resolver()` — construit le résolveur depuis le dict de config brut (avant validation Pydantic). Supporte `vault`, `yaml`, `env`, `chain`.
+- `infrastructure/secret_loader.py` : `resolve_dict_secrets()` — injecte les secrets dans le dict de config via leur chemin dot-notation avant la validation `AppConfig`.
+- `adapters/output/vault/secret_adapter.py` : `VaultSecretAdapter` — lit depuis HashiCorp Vault KV v2. Token via `VAULT_TOKEN` ou `~/.vault-token`. Retourne `None` silencieusement si Vault est injoignable (fallback possible via chain).
+- `adapters/output/yaml/secret_adapter.py` : `YamlSecretAdapter` — lit depuis un `secrets.yaml` gitignored (fallback dev local).
+- `adapters/output/env/secret_adapter.py` : `EnvSecretAdapter` — lit depuis les variables d'environnement (`field.path` → `FIELD_PATH`).
+- `adapters/output/chain/secret_adapter.py` : `ChainSecretAdapter` — tente chaque résolveur dans l'ordre, retourne la première valeur non-`None`.
+- `infrastructure/config.py` : `SecretsSettings` (section `secrets:` dans `config.yaml`) + intégration dans `load_config()`.
+- `pyproject.toml` : optional extra `vault = ["hvac>=2.3.0"]` ; `hvac` ajouté à l'extra `all`.
+- `arclith/__init__.py` : `SecretResolver`, `build_secret_resolver`, `resolve_dict_secrets` exportés.
+
+### Config `secrets:` dans `config.yaml`
+
+```yaml
+secrets:
+  resolver: chain          # vault | yaml | env | chain
+  chain: [vault, yaml]     # ordre de fallback pour chain
+  mappings:
+    adapters.mongodb.uri: rekipe/service/mongodb   # dot-path → clé Vault ou chemin yaml
+
+  vault:
+    addr: http://127.0.0.1:8200   # surchargeable via VAULT_ADDR
+    mount: kv
+
+  yaml:
+    path: secrets.yaml   # relatif au répertoire du config.yaml
+```
+
+---
+
 ## [0.2.1] — 2026-03-18
 
 ### Fixed
