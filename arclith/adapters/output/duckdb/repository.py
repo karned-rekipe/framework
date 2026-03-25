@@ -1,12 +1,11 @@
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Generic, Optional, TypeVar
 
 import duckdb
-from uuid6 import UUID, uuid7
-
 from arclith.domain.models.entity import Entity
 from arclith.domain.ports.repository import Repository
+from datetime import datetime
+from typing import Any, Generic, Optional, TypeVar
+from uuid6 import UUID, uuid7
 
 T = TypeVar("T", bound = Entity)
 
