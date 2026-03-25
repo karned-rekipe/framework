@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 from arclith.domain.ports.secret_resolver import SecretResolver
 
 
-def build_secret_resolver(raw_config: dict) -> SecretResolver | None:
+def build_secret_resolver(raw_config: dict, base_path: Path | None = None) -> SecretResolver | None:
     """Build a SecretResolver from raw config dict (before Pydantic validation).
 
     Returns None when no mappings are declared (nothing to resolve).
@@ -28,7 +29,8 @@ def build_secret_resolver(raw_config: dict) -> SecretResolver | None:
                 return VaultSecretAdapter(addr=addr, mount=mount)
             case "yaml":
                 yaml_cfg: dict = secrets.get("yaml") or {}
-                path: str = yaml_cfg.get("path", "secrets.yaml")
+                default_path = str(base_path / "secrets.yaml") if base_path else "secrets.yaml"
+                path: str = yaml_cfg.get("path", default_path)
                 from arclith.adapters.output.yaml.secret_adapter import YamlSecretAdapter
                 return YamlSecretAdapter(path=path)
             case "env":

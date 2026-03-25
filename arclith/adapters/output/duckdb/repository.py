@@ -1,12 +1,11 @@
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Generic, Optional, TypeVar
 
 import duckdb
-from uuid6 import UUID, uuid7
-
 from arclith.domain.models.entity import Entity
 from arclith.domain.ports.repository import Repository
+from datetime import datetime
+from typing import Any, Generic, Optional, TypeVar
+from uuid6 import UUID, uuid7
 
 T = TypeVar("T", bound = Entity)
 
@@ -121,8 +120,8 @@ class DuckDBRepository(Repository[T], Generic[T]):
         row = self._entity_to_row(entity)
         cols = ", ".join(row.keys())
         placeholders = ", ".join("?" for _ in row)
-        self._con.execute(f"INSERT INTO {self._table} ({cols}) VALUES ({placeholders})",
-                          list(row.values()))  # nosec B608
+        self._con.execute(f"INSERT INTO {self._table} ({cols}) VALUES ({placeholders})",  # nosec B608
+                          list(row.values()))
         self._persist()
         return entity
 

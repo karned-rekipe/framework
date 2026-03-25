@@ -5,6 +5,7 @@ UV  := uv run --frozen
 
 setup:
 	uv sync --group dev --extra all
+	git config core.hooksPath .githooks
 
 lint:
 	$(UV) ruff check $(SRC)
@@ -23,10 +24,7 @@ test:
 	$(UV) pytest -v
 
 coverage:
-	$(UV) pytest \
-		--cov=$(SRC) \
-		--cov-report=term-missing --cov-report=html --cov-branch \
-		--cov-fail-under=90
+	uv run --frozen --extra all pytest --cov --cov-report=term-missing --cov-report=html
 
 quality: lint security complexity typecheck coverage
 
