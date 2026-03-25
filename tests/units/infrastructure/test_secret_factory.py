@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-import yaml
 
 from arclith.infrastructure.secret_factory import build_secret_resolver
 from arclith.infrastructure.secret_loader import resolve_dict_secrets
