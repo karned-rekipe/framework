@@ -102,7 +102,7 @@ def test_chain_defaults_to_yaml_when_no_chain_key(tmp_path: Path) -> None:
         }
     }
     from arclith.adapters.output.chain.secret_adapter import ChainSecretAdapter
-    assert isinstance(build_secret_resolver(data, config_dir=tmp_path), ChainSecretAdapter)
+    assert isinstance(build_secret_resolver(data, tmp_path), ChainSecretAdapter)
 
 
 def test_unknown_resolver_raises() -> None:
