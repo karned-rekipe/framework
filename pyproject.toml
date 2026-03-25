@@ -49,10 +49,15 @@ testpaths = ["tests"]
 [tool.coverage.run]
 source = ["arclith"]
 branch = true
+omit = [
+    "arclith/adapters/output/mongodb/*",
+    "arclith/adapters/output/duckdb/*",
+    "arclith/arclith.py",
+    "**/__init__.py",
+]
 
 [tool.coverage.report]
 fail_under = 90
-omit = ["arclith/adapters/output/mongodb/*", "arclith/adapters/output/duckdb/*", "arclith/arclith.py"]
 
 [tool.mypy]
 explicit_package_bases = true
