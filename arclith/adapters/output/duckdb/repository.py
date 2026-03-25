@@ -2,7 +2,7 @@ from pathlib import Path
 
 import duckdb
 from datetime import datetime
-from typing import Any, Generic, Optional, TypeVar
+from typing import Generic, TypeVar
 from uuid6 import UUID, uuid7
 
 from arclith.domain.models.entity import Entity
