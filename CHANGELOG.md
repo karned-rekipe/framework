@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.4.0] — 2026-03-26
+
+### Added
+
+- **Standardized API Response Wrappers** — Richardson Maturity Model niveau 2-3 (HTTP + HATEOAS)
+- `adapters/input/schemas/response_wrapper.py` : nouveaux schemas pour des réponses API cohérentes :
+  - `ApiResponse[T]` : wrapper générique avec `status`, `data`, `error`, `metadata`
+  - `PaginatedResponse[T]` : wrapper pour listes paginées avec `PaginationInfo`
+  - `ResponseMetadata` : `request_id` (UUID v4), `timestamp` (UTC), `version`, `duration_ms`, `links` (HATEOAS)
+  - `ErrorDetail` : erreurs structurées avec `type`, `message`, `field`
+  - `PaginationInfo` : métadonnées de pagination (`total`, `page`, `per_page`, `has_next`, `has_prev`, etc.)
+- **Factory functions** :
+  - `success_response(data, metadata=None, links=None) -> ApiResponse[T]`
+  - `error_response(error_type, message, field=None, metadata=None) -> ApiResponse[None]`
+  - `paginated_response(data, total, page=1, per_page=20, ...) -> PaginatedResponse[T]`
+- `adapters/input/schemas/__init__.py` : exports des nouveaux types et factories
+
+### Standards
+
+- Inspiré des APIs modernes (GitHub, Stripe, Twilio)
+- Support des liens HATEOAS (autodécouvrabilité niveau 3 Richardson)
+- Conformité HTTP stricte (ex: 204 No Content sans body)
+- Traçabilité via `request_id` unique par requête
+
+### Breaking Changes
+
+**Aucun** — Cette release est **additive only**. Les wrappers sont disponibles mais optionnels pour les projets consommateurs.
+
+---
+
 ## [0.3.0] — 2026-03-25
 
 ### Added
