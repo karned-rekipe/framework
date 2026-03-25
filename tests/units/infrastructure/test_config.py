@@ -69,15 +69,16 @@ def test_soft_delete_zero_is_valid():
     assert s.retention_days == 0
 
 
-def test_mongodb_requires_uri_when_not_multitenant():
-    from pydantic import ValidationError
-    with pytest.raises(ValidationError):
-        AppConfig.model_validate({
-            "adapters": {
-                "repository": "mongodb",
-                "mongodb": {"db_name": "test"},
-            }
-        })
+def test_mongodb_uri_optional_at_parse_time():
+    # uri can be None at parse time — resolved via secrets at runtime
+    config = AppConfig.model_validate({
+        "adapters": {
+            "repository": "mongodb",
+            "mongodb": {"db_name": "test"},
+        }
+    })
+    assert config.adapters.mongodb is not None
+    assert config.adapters.mongodb.uri is None
 
 
 def test_mongodb_multitenant_no_uri_required():

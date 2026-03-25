@@ -56,8 +56,6 @@ class AdaptersSettings(BaseModel):
         if self.repository == "mongodb":
             if self.mongodb is None:
                 raise ValueError("repository=mongodb mais aucune section [adapters.mongodb] dans config.yaml")
-            if not self.multitenant and not self.mongodb.uri:
-                raise ValueError("adapters.mongodb.uri est requis quand multitenant est false")
         elif self.repository == "duckdb" and self.duckdb is None:
             raise ValueError("repository=duckdb mais aucune section [adapters.duckdb] dans config.yaml")
         return self
@@ -84,4 +82,15 @@ class AppConfig(BaseModel):
 def load_config(path: Path) -> AppConfig:
     with open(path) as f:
         data = yaml.safe_load(f)
-    return AppConfig.model_validate(data or {})
+    data = data or {}
+
+    from arclith.infrastructure.secret_factory import build_secret_resolver
+    from arclith.infrastructure.secret_loader import resolve_dict_secrets
+    from contextlib import suppress
+
+    resolver = build_secret_resolver(data, path.parent)
+    if resolver:
+        with suppress(Exception):
+            data = resolve_dict_secrets(data, resolver)
+
+    return AppConfig.model_validate(data)
