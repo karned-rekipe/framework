@@ -30,6 +30,20 @@ class Repository(ABC, Generic[T]):
         pass  # pragma: no cover
 
     @abstractmethod
+    async def find_page(self, offset: int = 0, limit: int | None = None) -> tuple[list[T], int]:
+        """Return a page of active entities and the total count (single query).
+
+        Args:
+            offset: Number of records to skip.
+            limit:  Max records to return (None = all remaining).
+
+        Returns:
+            ``(items, total)`` where *total* is the full count matching the
+            filter *before* offset/limit — suitable for pagination headers.
+        """
+        pass  # pragma: no cover
+
+    @abstractmethod
     async def find_deleted(self) -> list[T]:
         pass  # pragma: no cover
 

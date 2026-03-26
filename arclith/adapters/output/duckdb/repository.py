@@ -150,6 +150,17 @@ class DuckDBRepository(Repository[T], Generic[T]):
         return [self._row_to_entity(r) for r in rows]
 
     # noinspection SqlNoDataSourceInspection
+    async def find_page(self, offset: int = 0, limit: int | None = None) -> tuple[list[T], int]:
+        """Single-query pagination — COUNT(*) OVER () gives total before offset/limit."""
+        limit_clause = f"LIMIT {limit}" if limit is not None else ""
+        rows = self._fetch(
+            f"SELECT *, COUNT(*) OVER () AS __total FROM {self._table} "  # nosec B608
+            f"WHERE deleted_at IS NULL ORDER BY rowid OFFSET {offset} {limit_clause}"
+        )
+        total = int(rows[0]["__total"]) if rows else 0
+        return [self._row_to_entity({k: v for k, v in r.items() if k != "__total"}) for r in rows], total
+
+    # noinspection SqlNoDataSourceInspection
     async def find_deleted(self) -> list[T]:
         rows = self._fetch(f"SELECT * FROM {self._table} WHERE deleted_at IS NOT NULL")  # nosec B608
         return [self._row_to_entity(r) for r in rows]

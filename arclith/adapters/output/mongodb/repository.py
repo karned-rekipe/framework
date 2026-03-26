@@ -112,6 +112,33 @@ class MongoDBRepository(Repository[T], Generic[T]):
         async with self._collection() as col:
             return [self._from_doc(doc) async for doc in col.find({"deleted_at": None})]
 
+    async def find_page(self, offset: int = 0, limit: int | None = None) -> tuple[list[T], int]:
+        """Single-query pagination via MongoDB $facet aggregation."""
+        from typing import Any, cast
+        from collections.abc import Mapping, Sequence
+        
+        data_pipeline: list[dict] = [{"$skip": offset}]
+        if limit is not None:
+            data_pipeline.append({"$limit": limit})
+        pipeline: Sequence[Mapping[str, Any]] = cast(
+            Sequence[Mapping[str, Any]],
+            [
+                {"$match": {"deleted_at": None}},
+                {"$facet": {
+                    "data": data_pipeline,
+                    "total": [{"$count": "count"}],
+                }},
+            ]
+        )
+        async with self._collection() as col:
+            result = await col.aggregate(pipeline).to_list(length=1)
+        if not result:
+            return [], 0
+        facet = result[0]
+        items = [self._from_doc(doc) for doc in facet.get("data", [])]
+        total = facet["total"][0]["count"] if facet.get("total") else 0
+        return items, total
+
     async def find_deleted(self) -> list[T]:
         async with self._collection() as col:
             return [self._from_doc(doc) async for doc in col.find({"deleted_at": {"$ne": None}})]
