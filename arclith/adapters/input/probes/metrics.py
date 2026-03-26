@@ -92,31 +92,37 @@ class McpMetricsCollector:
 
     transport = "mcp"
 
-    def __init__(self, registry: MetricsRegistry) -> None:
+    def __init__(self, registry: MetricsRegistry, logger: "Any | None" = None) -> None:
         self._registry = registry
+        self._logger = logger
 
     def wrap(self, tool_name: str, fn: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
         """Wrap an async MCP tool function to record call/latency/failure metrics."""
         registry = self._registry
+        logger = self._logger
 
         @functools.wraps(fn)
         async def _wrapper(*args: Any, **kwargs: Any) -> Any:
             registry.increment("mcp", "tool_calls_total")
             registry.increment(f"mcp._tool.{tool_name}", "calls")
             start = time.monotonic()
+            ok = True
             try:
                 result = await fn(*args, **kwargs)
                 return result
             except Exception:
+                ok = False
                 registry.increment("mcp", "failures")
                 registry.increment(f"mcp._tool.{tool_name}", "failures")
                 raise
             finally:
-                elapsed_ms = (time.monotonic() - start) * 1000
+                elapsed_ms = round((time.monotonic() - start) * 1000, 2)
                 registry.increment("mcp", "_latency_sum_ms", elapsed_ms)
                 registry.increment("mcp", "_latency_count")
                 registry.increment(f"mcp._tool.{tool_name}", "_latency_sum_ms", elapsed_ms)
                 registry.increment(f"mcp._tool.{tool_name}", "_latency_count")
+                if logger:
+                    logger.info(f"⏱ mcp.{tool_name}", duration_ms=elapsed_ms, ok=ok)
 
         return _wrapper
 

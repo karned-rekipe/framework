@@ -80,12 +80,14 @@ class Arclith:
 
         if self.config.probe.enabled:
             from arclith.adapters.input.probes.metrics import ApiMetricsCollector
-            # add_middleware(cls, **kwargs) → Starlette calls cls(app=inner_app, registry=…)
             app.add_middleware(ApiMetricsCollector, registry=self._metrics_registry)
-            # Probe /metrics reads from same registry via a view instance (app=None, collect() only)
             self._probe_server.add_collector(
                 ApiMetricsCollector(app=None, registry=self._metrics_registry)  # type: ignore[arg-type]
             )
+
+        # TimingMiddleware always active — attach last so it wraps the full stack
+        from arclith.adapters.input.fastapi.timing import TimingMiddleware
+        app.add_middleware(TimingMiddleware, logger=self.logger)
 
         return app
 
@@ -191,7 +193,7 @@ class Arclith:
     @cached_property
     def _mcp_collector(self) -> Any:
         from arclith.adapters.input.probes.metrics import McpMetricsCollector
-        collector = McpMetricsCollector(self._metrics_registry)
+        collector = McpMetricsCollector(self._metrics_registry, logger=self.logger)
         if self.config.probe.enabled:
             self._probe_server.add_collector(collector)
         return collector

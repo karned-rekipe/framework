@@ -28,6 +28,12 @@ class InMemoryRepository(Repository[T], Generic[T]):
     async def find_all(self) -> list[T]:
         return [e for e in self._store.values() if not e.is_deleted]
 
+    async def find_page(self, offset: int = 0, limit: int | None = None) -> tuple[list[T], int]:
+        active = [e for e in self._store.values() if not e.is_deleted]
+        total = len(active)
+        page = active[offset: offset + limit] if limit is not None else active[offset:]
+        return page, total
+
     async def find_deleted(self) -> list[T]:
         return [e for e in self._store.values() if e.is_deleted]
 
