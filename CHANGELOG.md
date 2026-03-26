@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.5.0] — 2026-03-26
+
+### Added
+
+- **ProbeServer** — Observabilité production-ready sur port dédié
+  - `adapters/input/probes/server.py` : Starlette app isolée (daemon thread + asyncio loop)
+  - Endpoints : `/health`, `/ready`, `/info`, `/metrics` (JSON)
+  - `Arclith.add_readiness_check()` : health checks custom
+  - `Arclith.run_with_probes(*runners, transports)` : orchestration multi-transport
+
+- **Transport-aware Metrics** — Métriques par transport avec latencies (P50/P95/P99)
+  - `adapters/input/probes/metrics.py` : `MetricsRegistry` (thread-safe)
+  - `ApiMetricsCollector` : middleware Starlette ASGI (status/method/endpoint)
+  - `McpMetricsCollector` : wrapper `FunctionTool.fn` (tool_name/success/error)
+  - `EventBusCollectorProtocol` : Protocol pour futures implémentations
+  - `Arclith.instrument_mcp(mcp)` : auto-attach metrics via `fastmcp._local_provider`
+  - `Arclith.fastapi()` : auto-attach `ApiMetricsCollector` si `probe.enabled=true`
+
+- **Pagination DB-native** — Single-query pagination avec count total
+  - `Repository[T].find_page(offset, limit) -> tuple[list[T], int]`
+  - Implémentation InMemory, MongoDB (`$facet`), DuckDB
+  - `BaseService.find_page()` : use case paginé
+
+- **Timing OTEL-ready** — Context manager pour mesurer la durée d'exécution
+  - `log_duration(logger, operation, **ctx)` : context manager qui log la durée en ms
+  - `TimingMiddleware` : FastAPI middleware qui injecte `duration_ms` dans les logs
+  - `get_duration_ms()` : dependency FastAPI qui expose la durée de la requête
+
+- **Configuration** — Nouvelles sections `app:` et `probe:` dans `config.yaml`
+  - `AppSettings` : `name`, `version` (métadonnées app)
+  - `ProbeSettings` : `host`, `port`, `enabled` (`:9000` par défaut)
+
+### Breaking Changes
+
+**Aucun** — Rétrocompatible avec 0.4.0. Le ProbeServer et les métriques sont opt-in.
+
+---
+
 ## [0.4.0] — 2026-03-26
 
 ### Added
