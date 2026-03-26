@@ -9,3 +9,15 @@ dist/
 .hatch/
 *.dist-info/
 
+# secrets
+secrets.yaml
+
+# artefacts de test / qualité
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# macOS
+.DS_Store

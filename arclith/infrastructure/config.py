@@ -72,11 +72,24 @@ class McpSettings(BaseModel):
     port: int = 8001
 
 
+class ProbeSettings(BaseModel):
+    host: str = "0.0.0.0"  # nosec B104
+    port: int = 9000
+    enabled: bool = True
+
+
+class AppSettings(BaseModel):
+    name: str = "arclith-service"
+    version: str = "0.0.0"
+
+
 class AppConfig(BaseModel):
+    app: AppSettings = AppSettings()
     adapters: AdaptersSettings = AdaptersSettings()
     soft_delete: SoftDeleteSettings = SoftDeleteSettings()
     api: ApiSettings = ApiSettings()
     mcp: McpSettings = McpSettings()
+    probe: ProbeSettings = ProbeSettings()
 
 
 def load_config(path: Path) -> AppConfig:
