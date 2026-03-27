@@ -103,3 +103,316 @@ make typecheck
 
 - Test unitaire avec deux URIs distinctes : vérifier que les collections MongoDB ciblées sont différentes.
 
+---
+
+## SK-F05 — Créer un router FastAPI conforme aux conventions HTTP
+
+**Contexte :** exposer une nouvelle entité via REST avec les status codes SOTA.
+
+### Étapes
+
+1. **Lire** `docs/http-conventions.md` — connaître les status codes standards
+
+2. **Créer** `adapters/input/fastapi/routers/<entity>_router.py` :
+   ```python
+   class <Entity>Router:
+       def __init__(self, service: <Entity>Service, logger: Logger) -> None:
+           self._service = service
+           self._logger = logger
+           self.router = APIRouter(prefix="/v1/<entities>", tags=["<entities>"])
+           self._register_routes()
+
+       def _register_routes(self) -> None:
+           # POST — Create (201)
+           self.router.add_api_route(
+               methods=["POST"],
+               path="/",
+               endpoint=self.create_<entity>,
+               summary="Create <entity>",
+               response_model=<Entity>CreatedSchema,
+               status_code=201,  # ✅ Explicite
+               responses={
+                   400: {"description": "Invalid payload"},
+                   409: {"description": "<Entity> already exists"},
+               },
+           )
+           # GET — Read One (200 / 404)
+           self.router.add_api_route(
+               methods=["GET"],
+               path="/{uuid}",
+               endpoint=self.get_<entity>,
+               summary="Get <entity>",
+               response_model=<Entity>Schema,
+               status_code=200,  # ✅ Explicite
+               responses={404: {"description": "<Entity> not found"}},
+           )
+           # GET — List (200)
+           self.router.add_api_route(
+               methods=["GET"],
+               path="/",
+               endpoint=self.list_<entities>,
+               summary="List <entities>",
+               response_model=list[<Entity>Schema],
+               status_code=200,  # ✅ Explicite
+           )
+           # PUT — Replace (204 / 404)
+           self.router.add_api_route(
+               methods=["PUT"],
+               path="/{uuid}",
+               endpoint=self.update_<entity>,
+               summary="Replace <entity>",
+               status_code=204,  # ✅ No Content
+               responses={404: {"description": "<Entity> not found"}},
+           )
+           # PATCH — Partial Update (204 / 404)
+           self.router.add_api_route(
+               methods=["PATCH"],
+               path="/{uuid}",
+               endpoint=self.patch_<entity>,
+               summary="Partially update <entity>",
+               status_code=204,  # ✅ No Content
+               responses={404: {"description": "<Entity> not found"}},
+           )
+           # DELETE — Soft Delete (204)
+           self.router.add_api_route(
+               methods=["DELETE"],
+               path="/{uuid}",
+               endpoint=self.delete_<entity>,
+               summary="Delete <entity>",
+               status_code=204,  # ✅ No Content
+           )
+           # DELETE — Purge (200)
+           self.router.add_api_route(
+               methods=["DELETE"],
+               path="/purge",
+               endpoint=self.purge_<entities>,
+               summary="Purge soft-deleted <entities>",
+               status_code=200,  # ✅ OK + body { purged: N }
+           )
+           # POST — Duplicate (201 / 404)
+           self.router.add_api_route(
+               methods=["POST"],
+               path="/{uuid}/duplicate",
+               endpoint=self.duplicate_<entity>,
+               summary="Duplicate <entity>",
+               response_model=<Entity>CreatedSchema,
+               status_code=201,  # ✅ Created
+               responses={404: {"description": "<Entity> not found"}},
+           )
+   ```
+
+3. **Export** — ajouter dans `adapters/input/fastapi/routers/__init__.py` :
+   ```python
+   from adapters.input.fastapi.routers.<entity>_router import <Entity>Router
+   
+   __all__ = ["<Entity>Router", ...]
+   ```
+
+4. **Register** — importer et enregistrer dans `adapters/input/fastapi/router.py` :
+   ```python
+   from adapters.input.fastapi.routers import <Entity>Router
+   
+   def register_routers(app: FastAPI, arclith: Arclith) -> None:
+       service, logger = build_<entity>_service(arclith)
+       app.include_router(<Entity>Router(service, logger).router)
+   ```
+
+5. **Handlers** — lever `HTTPException(status_code=404, detail="...")` si `service.read()` retourne `None`
+
+6. **Validation** — tester avec `pytest` + `TestClient` :
+   - Vérifier chaque status code (201, 200, 204, 404, 400)
+   - Vérifier que PUT/PATCH/DELETE retournent body vide (`None`)
+   - Vérifier que GET list retourne 200 + `[]` si vide (pas 404)
+
+### Validation
+
+```bash
+make test
+```
+
+### Références
+
+- `docs/http-conventions.md` — conventions complètes
+- `_sample/adapters/input/fastapi/routers/ingredient_router.py` — exemple de référence
+
+---
+
+## SK-F06 — Organiser routers FastAPI et tools MCP en sous-dossiers
+
+**Contexte :** structurer les adapters d'entrée pour gérer plusieurs entités proprement.
+
+### Structure recommandée
+
+```
+adapters/
+  input/
+    fastapi/
+      routers/
+        __init__.py              # Export tous les routers
+        ingredient_router.py
+        recipe_router.py
+        ...
+      router.py                  # Register routers (point d'entrée)
+      dependencies.py
+    fastmcp/
+      tools/
+        __init__.py              # Export tous les tools
+        ingredient_tools.py
+        recipe_tools.py
+        ...
+      tools.py                   # Register tools (point d'entrée)
+      prompts/
+        __init__.py              # Export tous les prompts
+        ingredient_prompts.py
+        recipe_prompts.py
+        ...
+      prompts.py                 # Register prompts (point d'entrée)
+      resources/
+        __init__.py              # Export toutes les resources
+        ingredient_resources.py
+        recipe_resources.py
+        ...
+      resources.py               # Register resources (point d'entrée)
+      dependencies.py
+```
+
+### Étapes de migration
+
+1. **Créer les sous-dossiers** :
+   ```bash
+   mkdir -p adapters/input/fastapi/routers
+   mkdir -p adapters/input/fastmcp/tools
+   mkdir -p adapters/input/fastmcp/prompts
+   mkdir -p adapters/input/fastmcp/resources
+   ```
+
+2. **Déplacer les fichiers** :
+   ```bash
+   mv adapters/input/fastapi/*_router.py adapters/input/fastapi/routers/
+   mv adapters/input/fastmcp/*_tools.py adapters/input/fastmcp/tools/
+   # Renommer et déplacer les fichiers prompts et resources
+   mv adapters/input/fastmcp/prompts.py adapters/input/fastmcp/prompts/ingredient_prompts.py
+   mv adapters/input/fastmcp/resources.py adapters/input/fastmcp/resources/ingredient_resources.py
+   ```
+
+3. **Créer les `__init__.py`** :
+   ```python
+   # adapters/input/fastapi/routers/__init__.py
+   from adapters.input.fastapi.routers.ingredient_router import IngredientRouter
+   from adapters.input.fastapi.routers.recipe_router import RecipeRouter
+   
+   __all__ = ["IngredientRouter", "RecipeRouter"]
+   ```
+   
+   ```python
+   # adapters/input/fastmcp/tools/__init__.py
+   from adapters.input.fastmcp.tools.ingredient_tools import IngredientMCP
+   from adapters.input.fastmcp.tools.recipe_tools import RecipeMCP
+   
+   __all__ = ["IngredientMCP", "RecipeMCP"]
+   ```
+   
+   ```python
+   # adapters/input/fastmcp/prompts/__init__.py
+   from adapters.input.fastmcp.prompts.ingredient_prompts import IngredientPrompts
+   from adapters.input.fastmcp.prompts.recipe_prompts import RecipePrompts
+   
+   __all__ = ["IngredientPrompts", "RecipePrompts"]
+   ```
+   
+   ```python
+   # adapters/input/fastmcp/resources/__init__.py
+   from adapters.input.fastmcp.resources.ingredient_resources import IngredientResources
+   from adapters.input.fastmcp.resources.recipe_resources import RecipeResources
+   
+   __all__ = ["IngredientResources", "RecipeResources"]
+   ```
+
+4. **Mettre à jour les imports** dans `router.py`, `tools.py`, `main.py`, etc. :
+   ```python
+   # Avant
+   from adapters.input.fastapi.ingredient_router import IngredientRouter
+   from adapters.input.fastmcp.ingredient_tools import IngredientMCP
+   from adapters.input.fastmcp.prompts import IngredientPrompts
+   from adapters.input.fastmcp.resources import IngredientResources
+   
+   # Après
+   from adapters.input.fastapi.routers import IngredientRouter
+   from adapters.input.fastmcp.tools import IngredientMCP
+   from adapters.input.fastmcp.prompts import IngredientPrompts
+   from adapters.input.fastmcp.resources import IngredientResources
+   ```
+
+5. **Mettre à jour les tests** qui importent ces modules :
+   ```python
+   # Avant
+   from adapters.input.fastapi.ingredient_router import IngredientRouter
+   
+   # Après
+   from adapters.input.fastapi.routers import IngredientRouter
+   ```
+
+6. **Corriger les `patch()` dans les tests MCP** :
+   ```python
+   # Avant
+   patch("adapters.input.fastmcp.ingredient_tools.inject_tenant_uri")
+   
+   # Après
+   patch("adapters.input.fastmcp.tools.ingredient_tools.inject_tenant_uri")
+   ```
+
+7. **Créer les fichiers register pour prompts et resources** :
+   ```python
+   # adapters/input/fastmcp/prompts.py
+   import fastmcp
+   from arclith import Arclith
+   from adapters.input.fastmcp.prompts import IngredientPrompts
+   from infrastructure.ingredient_container import build_ingredient_service
+   
+   def register_prompts(mcp: fastmcp.FastMCP, arclith: Arclith) -> None:
+       service, logger = build_ingredient_service(arclith)
+       IngredientPrompts(service, logger, mcp)
+   ```
+   
+   ```python
+   # adapters/input/fastmcp/resources.py
+   import fastmcp
+   from arclith import Arclith
+   from adapters.input.fastmcp.resources import IngredientResources
+   from infrastructure.ingredient_container import build_ingredient_service
+   
+   def register_resources(mcp: fastmcp.FastMCP, arclith: Arclith) -> None:
+       service, logger = build_ingredient_service(arclith)
+       IngredientResources(service, logger, mcp)
+   ```
+
+8. **Mettre à jour main.py** :
+   ```python
+   # Imports
+   from adapters.input.fastmcp.tools import register_tools
+   from adapters.input.fastmcp.prompts import register_prompts
+   from adapters.input.fastmcp.resources import register_resources
+   
+   # Dans la fonction MCP runner
+   mcp = arclith.fastmcp("MyApp")
+   register_tools(mcp, arclith)
+   register_prompts(mcp, arclith)
+   register_resources(mcp, arclith)
+   ```
+
+### Validation
+
+```bash
+make test
+```
+
+### Avantages
+
+- ✅ Scalable : ajouter de nouvelles entités n'encombre pas le dossier parent
+- ✅ Cohérent : même structure pour FastAPI et FastMCP (router.py ↔ tools.py/prompts.py/resources.py)
+- ✅ Explicite : les `__init__.py` documentent ce qui est public, les register_*() centralisent l'enregistrement
+- ✅ Standard : pattern courant dans les projets Python
+
+### Références
+
+- `_sample/adapters/input/` — implémentation de référence
