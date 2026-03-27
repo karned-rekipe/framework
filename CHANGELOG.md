@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0] — 2026-03-27
+
+### Changed
+
+- **request_id uses UUIDv7** — `ResponseMetadata.request_id` now uses UUIDv7 (time-ordered) instead of UUIDv4 for better traceability and chronological sorting. This aligns with the framework's `Entity.uuid` convention.
+
+---
+
 ## [0.4.0] — 2026-03-26
 
 ### Added
