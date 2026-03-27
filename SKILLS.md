@@ -261,9 +261,17 @@ adapters/
         recipe_tools.py
         ...
       tools.py                   # Register tools (point d'entrée)
+      prompts/
+        __init__.py              # Export tous les prompts
+        ingredient_prompts.py
+        recipe_prompts.py
+        ...
+      resources/
+        __init__.py              # Export toutes les resources
+        ingredient_resources.py
+        recipe_resources.py
+        ...
       dependencies.py
-      prompts.py                 # Prompts MCP (optionnel)
-      resources.py               # Resources MCP (optionnel)
 ```
 
 ### Étapes de migration
@@ -272,12 +280,17 @@ adapters/
    ```bash
    mkdir -p adapters/input/fastapi/routers
    mkdir -p adapters/input/fastmcp/tools
+   mkdir -p adapters/input/fastmcp/prompts
+   mkdir -p adapters/input/fastmcp/resources
    ```
 
 2. **Déplacer les fichiers** :
    ```bash
    mv adapters/input/fastapi/*_router.py adapters/input/fastapi/routers/
    mv adapters/input/fastmcp/*_tools.py adapters/input/fastmcp/tools/
+   # Renommer et déplacer les fichiers prompts et resources
+   mv adapters/input/fastmcp/prompts.py adapters/input/fastmcp/prompts/ingredient_prompts.py
+   mv adapters/input/fastmcp/resources.py adapters/input/fastmcp/resources/ingredient_resources.py
    ```
 
 3. **Créer les `__init__.py`** :
@@ -296,14 +309,36 @@ adapters/
    
    __all__ = ["IngredientMCP", "RecipeMCP"]
    ```
+   
+   ```python
+   # adapters/input/fastmcp/prompts/__init__.py
+   from adapters.input.fastmcp.prompts.ingredient_prompts import IngredientPrompts
+   from adapters.input.fastmcp.prompts.recipe_prompts import RecipePrompts
+   
+   __all__ = ["IngredientPrompts", "RecipePrompts"]
+   ```
+   
+   ```python
+   # adapters/input/fastmcp/resources/__init__.py
+   from adapters.input.fastmcp.resources.ingredient_resources import IngredientResources
+   from adapters.input.fastmcp.resources.recipe_resources import RecipeResources
+   
+   __all__ = ["IngredientResources", "RecipeResources"]
+   ```
 
-4. **Mettre à jour les imports** dans `router.py` et `tools.py` :
+4. **Mettre à jour les imports** dans `router.py`, `tools.py`, `main.py`, etc. :
    ```python
    # Avant
    from adapters.input.fastapi.ingredient_router import IngredientRouter
+   from adapters.input.fastmcp.ingredient_tools import IngredientMCP
+   from adapters.input.fastmcp.prompts import IngredientPrompts
+   from adapters.input.fastmcp.resources import IngredientResources
    
    # Après
    from adapters.input.fastapi.routers import IngredientRouter
+   from adapters.input.fastmcp.tools import IngredientMCP
+   from adapters.input.fastmcp.prompts import IngredientPrompts
+   from adapters.input.fastmcp.resources import IngredientResources
    ```
 
 5. **Mettre à jour les tests** qui importent ces modules :
