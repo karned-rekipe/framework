@@ -63,6 +63,15 @@ class Arclith:
         return build_repository(self.config, entity_class, self.logger)
     def fastapi(self, **kwargs: Any) -> "FastAPI":
         from fastapi import FastAPI
+        
+        # Injecter title, version et description depuis la config si non fournis
+        if "title" not in kwargs:
+            kwargs["title"] = self.config.app.name
+        if "version" not in kwargs:
+            kwargs["version"] = self.config.app.version
+        if "description" not in kwargs:
+            kwargs["description"] = self.config.app.description
+        
         user_lifespan = kwargs.pop("lifespan", None)
         arclith_self = self
 

@@ -81,6 +81,7 @@ class ProbeSettings(BaseModel):
 class AppSettings(BaseModel):
     name: str = "arclith-service"
     version: str = "0.0.0"
+    description: str = "API service built with arclith framework"
 
 
 class AppConfig(BaseModel):

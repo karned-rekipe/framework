@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.1] — 2026-03-27
+
+### Added
+
+- **AppSettings.description** — New optional field in `app:` section of `config.yaml` for API description. Automatically injected into FastAPI Swagger/OpenAPI documentation via `arclith.fastapi()`. Default: `"API service built with arclith framework"`.
+
+### Changed
+
+- **FastAPI metadata injection** — `arclith.fastapi()` now automatically injects `title`, `version`, and `description` from `config.app.*` if not explicitly provided in kwargs. This enables centralized API metadata management through config.yaml.
+
+---
+
 ## [0.6.0] — 2026-03-27
 
 ### Changed
