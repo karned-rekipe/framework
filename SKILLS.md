@@ -103,3 +103,118 @@ make typecheck
 
 - Test unitaire avec deux URIs distinctes : vérifier que les collections MongoDB ciblées sont différentes.
 
+---
+
+## SK-F05 — Créer un router FastAPI conforme aux conventions HTTP
+
+**Contexte :** exposer une nouvelle entité via REST avec les status codes SOTA.
+
+### Étapes
+
+1. **Lire** `docs/http-conventions.md` — connaître les status codes standards
+
+2. **Créer** `adapters/input/fastapi/<entity>_router.py` :
+   ```python
+   class <Entity>Router:
+       def __init__(self, service: <Entity>Service, logger: Logger) -> None:
+           self._service = service
+           self._logger = logger
+           self.router = APIRouter(prefix="/v1/<entities>", tags=["<entities>"])
+           self._register_routes()
+
+       def _register_routes(self) -> None:
+           # POST — Create (201)
+           self.router.add_api_route(
+               methods=["POST"],
+               path="/",
+               endpoint=self.create_<entity>,
+               summary="Create <entity>",
+               response_model=<Entity>CreatedSchema,
+               status_code=201,  # ✅ Explicite
+               responses={
+                   400: {"description": "Invalid payload"},
+                   409: {"description": "<Entity> already exists"},
+               },
+           )
+           # GET — Read One (200 / 404)
+           self.router.add_api_route(
+               methods=["GET"],
+               path="/{uuid}",
+               endpoint=self.get_<entity>,
+               summary="Get <entity>",
+               response_model=<Entity>Schema,
+               status_code=200,  # ✅ Explicite
+               responses={404: {"description": "<Entity> not found"}},
+           )
+           # GET — List (200)
+           self.router.add_api_route(
+               methods=["GET"],
+               path="/",
+               endpoint=self.list_<entities>,
+               summary="List <entities>",
+               response_model=list[<Entity>Schema],
+               status_code=200,  # ✅ Explicite
+           )
+           # PUT — Replace (204 / 404)
+           self.router.add_api_route(
+               methods=["PUT"],
+               path="/{uuid}",
+               endpoint=self.update_<entity>,
+               summary="Replace <entity>",
+               status_code=204,  # ✅ No Content
+               responses={404: {"description": "<Entity> not found"}},
+           )
+           # PATCH — Partial Update (204 / 404)
+           self.router.add_api_route(
+               methods=["PATCH"],
+               path="/{uuid}",
+               endpoint=self.patch_<entity>,
+               summary="Partially update <entity>",
+               status_code=204,  # ✅ No Content
+               responses={404: {"description": "<Entity> not found"}},
+           )
+           # DELETE — Soft Delete (204)
+           self.router.add_api_route(
+               methods=["DELETE"],
+               path="/{uuid}",
+               endpoint=self.delete_<entity>,
+               summary="Delete <entity>",
+               status_code=204,  # ✅ No Content
+           )
+           # DELETE — Purge (200)
+           self.router.add_api_route(
+               methods=["DELETE"],
+               path="/purge",
+               endpoint=self.purge_<entities>,
+               summary="Purge soft-deleted <entities>",
+               status_code=200,  # ✅ OK + body { purged: N }
+           )
+           # POST — Duplicate (201 / 404)
+           self.router.add_api_route(
+               methods=["POST"],
+               path="/{uuid}/duplicate",
+               endpoint=self.duplicate_<entity>,
+               summary="Duplicate <entity>",
+               response_model=<Entity>CreatedSchema,
+               status_code=201,  # ✅ Created
+               responses={404: {"description": "<Entity> not found"}},
+           )
+   ```
+
+3. **Handlers** — lever `HTTPException(status_code=404, detail="...")` si `service.read()` retourne `None`
+
+4. **Validation** — tester avec `pytest` + `TestClient` :
+   - Vérifier chaque status code (201, 200, 204, 404, 400)
+   - Vérifier que PUT/PATCH/DELETE retournent body vide (`None`)
+   - Vérifier que GET list retourne 200 + `[]` si vide (pas 404)
+
+### Validation
+
+```bash
+make test
+```
+
+### Références
+
+- `docs/http-conventions.md` — conventions complètes
+- `_sample/adapters/input/fastapi/ingredient_router.py` — exemple de référence
