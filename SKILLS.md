@@ -266,11 +266,13 @@ adapters/
         ingredient_prompts.py
         recipe_prompts.py
         ...
+      prompts.py                 # Register prompts (point d'entrée)
       resources/
         __init__.py              # Export toutes les resources
         ingredient_resources.py
         recipe_resources.py
         ...
+      resources.py               # Register resources (point d'entrée)
       dependencies.py
 ```
 
@@ -359,6 +361,45 @@ adapters/
    patch("adapters.input.fastmcp.tools.ingredient_tools.inject_tenant_uri")
    ```
 
+7. **Créer les fichiers register pour prompts et resources** :
+   ```python
+   # adapters/input/fastmcp/prompts.py
+   import fastmcp
+   from arclith import Arclith
+   from adapters.input.fastmcp.prompts import IngredientPrompts
+   from infrastructure.ingredient_container import build_ingredient_service
+   
+   def register_prompts(mcp: fastmcp.FastMCP, arclith: Arclith) -> None:
+       service, logger = build_ingredient_service(arclith)
+       IngredientPrompts(service, logger, mcp)
+   ```
+   
+   ```python
+   # adapters/input/fastmcp/resources.py
+   import fastmcp
+   from arclith import Arclith
+   from adapters.input.fastmcp.resources import IngredientResources
+   from infrastructure.ingredient_container import build_ingredient_service
+   
+   def register_resources(mcp: fastmcp.FastMCP, arclith: Arclith) -> None:
+       service, logger = build_ingredient_service(arclith)
+       IngredientResources(service, logger, mcp)
+   ```
+
+8. **Mettre à jour main.py** :
+   ```python
+   # Imports
+   from adapters.input.fastmcp.tools import register_tools
+   from adapters.input.fastmcp.prompts import register_prompts
+   from adapters.input.fastmcp.resources import register_resources
+   
+   # Dans la fonction MCP runner
+   mcp = arclith.fastmcp("MyApp")
+   register_tools(mcp, arclith)
+   register_prompts(mcp, arclith)
+   register_resources(mcp, arclith)
+   ```
+
 ### Validation
 
 ```bash
@@ -368,8 +409,8 @@ make test
 ### Avantages
 
 - ✅ Scalable : ajouter de nouvelles entités n'encombre pas le dossier parent
-- ✅ Cohérent : même structure pour FastAPI et FastMCP
-- ✅ Explicite : les `__init__.py` documentent ce qui est public
+- ✅ Cohérent : même structure pour FastAPI et FastMCP (router.py ↔ tools.py/prompts.py/resources.py)
+- ✅ Explicite : les `__init__.py` documentent ce qui est public, les register_*() centralisent l'enregistrement
 - ✅ Standard : pattern courant dans les projets Python
 
 ### Références
