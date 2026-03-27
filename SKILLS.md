@@ -113,7 +113,7 @@ make typecheck
 
 1. **Lire** `docs/http-conventions.md` — connaître les status codes standards
 
-2. **Créer** `adapters/input/fastapi/<entity>_router.py` :
+2. **Créer** `adapters/input/fastapi/routers/<entity>_router.py` :
    ```python
    class <Entity>Router:
        def __init__(self, service: <Entity>Service, logger: Logger) -> None:
@@ -201,9 +201,25 @@ make typecheck
            )
    ```
 
-3. **Handlers** — lever `HTTPException(status_code=404, detail="...")` si `service.read()` retourne `None`
+3. **Export** — ajouter dans `adapters/input/fastapi/routers/__init__.py` :
+   ```python
+   from adapters.input.fastapi.routers.<entity>_router import <Entity>Router
+   
+   __all__ = ["<Entity>Router", ...]
+   ```
 
-4. **Validation** — tester avec `pytest` + `TestClient` :
+4. **Register** — importer et enregistrer dans `adapters/input/fastapi/router.py` :
+   ```python
+   from adapters.input.fastapi.routers import <Entity>Router
+   
+   def register_routers(app: FastAPI, arclith: Arclith) -> None:
+       service, logger = build_<entity>_service(arclith)
+       app.include_router(<Entity>Router(service, logger).router)
+   ```
+
+5. **Handlers** — lever `HTTPException(status_code=404, detail="...")` si `service.read()` retourne `None`
+
+6. **Validation** — tester avec `pytest` + `TestClient` :
    - Vérifier chaque status code (201, 200, 204, 404, 400)
    - Vérifier que PUT/PATCH/DELETE retournent body vide (`None`)
    - Vérifier que GET list retourne 200 + `[]` si vide (pas 404)
@@ -217,4 +233,110 @@ make test
 ### Références
 
 - `docs/http-conventions.md` — conventions complètes
-- `_sample/adapters/input/fastapi/ingredient_router.py` — exemple de référence
+- `_sample/adapters/input/fastapi/routers/ingredient_router.py` — exemple de référence
+
+---
+
+## SK-F06 — Organiser routers FastAPI et tools MCP en sous-dossiers
+
+**Contexte :** structurer les adapters d'entrée pour gérer plusieurs entités proprement.
+
+### Structure recommandée
+
+```
+adapters/
+  input/
+    fastapi/
+      routers/
+        __init__.py              # Export tous les routers
+        ingredient_router.py
+        recipe_router.py
+        ...
+      router.py                  # Register routers (point d'entrée)
+      dependencies.py
+    fastmcp/
+      tools/
+        __init__.py              # Export tous les tools
+        ingredient_tools.py
+        recipe_tools.py
+        ...
+      tools.py                   # Register tools (point d'entrée)
+      dependencies.py
+      prompts.py                 # Prompts MCP (optionnel)
+      resources.py               # Resources MCP (optionnel)
+```
+
+### Étapes de migration
+
+1. **Créer les sous-dossiers** :
+   ```bash
+   mkdir -p adapters/input/fastapi/routers
+   mkdir -p adapters/input/fastmcp/tools
+   ```
+
+2. **Déplacer les fichiers** :
+   ```bash
+   mv adapters/input/fastapi/*_router.py adapters/input/fastapi/routers/
+   mv adapters/input/fastmcp/*_tools.py adapters/input/fastmcp/tools/
+   ```
+
+3. **Créer les `__init__.py`** :
+   ```python
+   # adapters/input/fastapi/routers/__init__.py
+   from adapters.input.fastapi.routers.ingredient_router import IngredientRouter
+   from adapters.input.fastapi.routers.recipe_router import RecipeRouter
+   
+   __all__ = ["IngredientRouter", "RecipeRouter"]
+   ```
+   
+   ```python
+   # adapters/input/fastmcp/tools/__init__.py
+   from adapters.input.fastmcp.tools.ingredient_tools import IngredientMCP
+   from adapters.input.fastmcp.tools.recipe_tools import RecipeMCP
+   
+   __all__ = ["IngredientMCP", "RecipeMCP"]
+   ```
+
+4. **Mettre à jour les imports** dans `router.py` et `tools.py` :
+   ```python
+   # Avant
+   from adapters.input.fastapi.ingredient_router import IngredientRouter
+   
+   # Après
+   from adapters.input.fastapi.routers import IngredientRouter
+   ```
+
+5. **Mettre à jour les tests** qui importent ces modules :
+   ```python
+   # Avant
+   from adapters.input.fastapi.ingredient_router import IngredientRouter
+   
+   # Après
+   from adapters.input.fastapi.routers import IngredientRouter
+   ```
+
+6. **Corriger les `patch()` dans les tests MCP** :
+   ```python
+   # Avant
+   patch("adapters.input.fastmcp.ingredient_tools.inject_tenant_uri")
+   
+   # Après
+   patch("adapters.input.fastmcp.tools.ingredient_tools.inject_tenant_uri")
+   ```
+
+### Validation
+
+```bash
+make test
+```
+
+### Avantages
+
+- ✅ Scalable : ajouter de nouvelles entités n'encombre pas le dossier parent
+- ✅ Cohérent : même structure pour FastAPI et FastMCP
+- ✅ Explicite : les `__init__.py` documentent ce qui est public
+- ✅ Standard : pattern courant dans les projets Python
+
+### Références
+
+- `_sample/adapters/input/` — implémentation de référence
