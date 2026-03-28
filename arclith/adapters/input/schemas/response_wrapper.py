@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
 from typing import Generic, TypeVar
-from uuid import uuid4
 
 from pydantic import BaseModel, Field
+from uuid6 import uuid7
 
 
 T = TypeVar("T")
@@ -12,9 +12,9 @@ class ResponseMetadata(BaseModel):
     """Métadonnées de réponse API (niveau 3 Richardson - liens HATEOAS optionnels)."""
 
     request_id: str = Field(
-        default_factory=lambda: str(uuid4()),
-        description="Identifiant unique de la requête pour le traçage.",
-        examples=["550e8400-e29b-41d4-a716-446655440000"],
+        default_factory=lambda: str(uuid7()),
+        description="Identifiant unique de la requête pour le traçage (UUIDv7 time-ordered).",
+        examples=["01951234-5678-7abc-def0-123456789abc"],
     )
     timestamp: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),

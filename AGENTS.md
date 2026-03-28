@@ -24,6 +24,7 @@ Fournir les primitives réutilisables pour construire des services en architectu
   `[all]`).
 - Coverage **≥ 90 %** : `make coverage`.
 - Pre-commit gate : `make precommit` (lint + typecheck + security).
+- **HTTP Status Codes** : toujours déclarer explicitement `status_code` et `responses` dans FastAPI. Voir `docs/http-conventions.md`.
 
 ## Architecture
 
@@ -130,4 +131,5 @@ make test        # pytest -v
 3. `arclith/application/services/base_service.py` — les use cases câblés
 4. `arclith/infrastructure/config.py` — la config validée
 5. `arclith/infrastructure/repository_factory.py` — le routage des implémentations
+6. `docs/http-conventions.md` — status codes HTTP/REST SOTA
 
