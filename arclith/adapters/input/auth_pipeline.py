@@ -27,6 +27,33 @@ class AuthPipelineError(Exception):
         self.detail = detail
 
 
+def _extract_bearer_token(headers: Mapping[str, str]) -> str:
+    auth = headers.get("Authorization") or headers.get("authorization", "")
+    if not auth.startswith("Bearer "):
+        raise AuthPipelineError(401, "Authorization header manquant ou invalide")
+    return auth.removeprefix("Bearer ")
+
+
+async def _resolve_and_set_tenant(
+    claims: dict,
+    tenant_resolvers: "list[TenantResolver]",
+    tenant_claim: str,
+) -> None:
+    tenant_id: str | None = claims.get(tenant_claim)
+    if not tenant_id:
+        raise AuthPipelineError(401, f"Claim '{tenant_claim}' absent du token")
+
+    results = await asyncio.gather(*[r.resolve(tenant_id) for r in tenant_resolvers])
+    merged = TenantContext(
+        adapters={
+            adapter: coords
+            for ctx in results
+            for adapter, coords in ctx.adapters.items()
+        }
+    )
+    set_tenant_context(merged)
+
+
 async def run_auth_pipeline(
     headers: Mapping[str, str],
     *,
@@ -51,11 +78,7 @@ async def run_auth_pipeline(
 
     ``tenant_resolvers`` is optional — omit for auth-only (no tenant resolution).
     """
-    auth = headers.get("Authorization") or headers.get("authorization", "")
-    if not auth.startswith("Bearer "):
-        raise AuthPipelineError(401, "Authorization header manquant ou invalide")
-
-    token = auth.removeprefix("Bearer ")
+    token = _extract_bearer_token(headers)
 
     try:
         claims: dict = await jwt_decoder.decode(token)
@@ -66,20 +89,7 @@ async def run_auth_pipeline(
         raise AuthPipelineError(403, "Licence invalide ou absente")
 
     if tenant_resolvers:
-        tenant_id: str | None = claims.get(tenant_claim)
-        if not tenant_id:
-            raise AuthPipelineError(401, f"Claim '{tenant_claim}' absent du token")
-
-        results = await asyncio.gather(*[r.resolve(tenant_id) for r in tenant_resolvers])
-
-        merged = TenantContext(
-            adapters={
-                adapter: coords
-                for ctx in results
-                for adapter, coords in ctx.adapters.items()
-            }
-        )
-        set_tenant_context(merged)
+        await _resolve_and_set_tenant(claims, tenant_resolvers, tenant_claim)
 
     return claims
 
