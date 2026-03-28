@@ -162,6 +162,86 @@ Voir `SKILLS.md` (workspace racine) → SK-09 et SK-10 pour le câblage complet.
 
 ---
 
+## SK-F09 — Sécuriser des routes FastAPI et tools FastMCP avec `require_auth`
+
+**Contexte :** ajouter la protection JWT Keycloak sur des routes ou tools spécifiques.
+
+> Référence complète : `docs/auth.md`
+
+### Prérequis
+
+`config.yaml` doit contenir la section `keycloak` :
+
+```yaml
+keycloak:
+  url: http://keycloak:8080
+  realm: rekipe
+  audience: rekipe-api  # null = pas de vérification aud
+license:
+  role: rekipe:licensed  # optionnel — omis = pas de vérification licence
+```
+
+### Étapes — FastAPI
+
+1. **Obtenir la dépendance** depuis `Arclith` :
+   ```python
+   require_auth = arclith.auth_dependency()  # transport="api" par défaut
+   ```
+
+2. **Protéger un router entier** :
+   ```python
+   router = APIRouter(prefix="/v1/recipes", dependencies=[Depends(require_auth)])
+   ```
+
+3. **Protéger une route individuelle** :
+   ```python
+   router.add_api_route(..., dependencies=[Depends(require_auth)])
+   ```
+
+4. **Injecter les claims** dans un handler :
+   ```python
+   async def my_endpoint(claims: Annotated[dict, Depends(require_auth)]) -> ...:
+       user_id = claims.get("sub")
+   ```
+
+### Étapes — FastMCP
+
+1. **Obtenir la dépendance MCP** :
+   ```python
+   require_auth_mcp = arclith.auth_dependency(transport="mcp")
+   ```
+
+2. **Protéger un tool** :
+   ```python
+   @mcp.tool
+   async def my_tool(
+       name: str,
+       ctx: fastmcp.Context,
+       _auth: Annotated[dict, Depends(require_auth_mcp)],
+   ) -> dict:
+       ...
+   ```
+
+### Étapes — Pipeline multitenant complet
+
+Voir `docs/multitenant.md` + `docs/auth.md` → section "Pipeline complet".
+
+```python
+inject_tenant = make_inject_tenant_uri(config, jwt_decoder=..., license_validator=..., tenant_resolvers=[...])
+# FastAPI : router = APIRouter(dependencies=[Depends(inject_tenant)])
+# FastMCP : _tenant: Annotated[None, Depends(inject_tenant_mcp)]
+```
+
+### Validation
+
+```bash
+# Override pour les tests
+app.dependency_overrides[require_auth] = lambda: {"sub": "test-user"}
+make test
+```
+
+---
+
 **Contexte :** exposer une nouvelle entité via REST avec les status codes SOTA.
 
 ### Étapes

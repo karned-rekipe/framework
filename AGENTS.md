@@ -151,4 +151,6 @@ make test        # pytest -v
 4. `arclith/infrastructure/config.py` — la config validée
 5. `arclith/infrastructure/repository_factory.py` — le routage des implémentations
 6. `docs/http-conventions.md` — status codes HTTP/REST SOTA
+7. `docs/auth.md` — authentification JWT : tous les patterns FastAPI + FastMCP
+8. `docs/multitenant.md` — isolation multi-tenant via Vault + ContextVar
 
