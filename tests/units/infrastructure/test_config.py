@@ -85,8 +85,7 @@ def test_mongodb_multitenant_no_uri_required():
     config = AppConfig.model_validate({
         "adapters": {
             "repository": "mongodb",
-            "multitenant": True,
-            "mongodb": {"db_name": "test"},
+            "mongodb": {"db_name": "test", "multitenant": True},
         }
     })
     assert config.adapters.multitenant is True

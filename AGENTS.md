@@ -32,20 +32,36 @@ Fournir les primitives réutilisables pour construire des services en architectu
 arclith/
   domain/
     models/entity.py          # Entity (UUIDv7, audit, soft-delete, version)
+    models/tenant.py          # TenantContext + AdapterTenantCoords
     ports/repository.py       # Repository[T] (ABC, CRUD + find_deleted + duplicate)
     ports/logger.py           # Logger (ABC)
+    ports/cache.py            # CachePort (ABC)
+    ports/license_validator.py # LicenseValidator (ABC)
+    ports/tenant_resolver.py  # TenantResolver (ABC)
   application/
     use_cases/                # CreateUseCase, ReadUseCase, UpdateUseCase, DeleteUseCase,
                               # FindAllUseCase, DuplicateUseCase, PurgeUseCase
     services/base_service.py  # BaseService[T] — câble les 7 use cases
   adapters/
-    context.py                # set_tenant_uri / get_tenant_uri (ContextVar multitenant)
-    input/fastmcp/dependencies.py  # make_inject_tenant_uri()
+    context.py                # set_tenant_context / get_tenant_context (ContextVar multitenant)
+    input/
+      auth_pipeline.py        # run_auth_pipeline() — pipeline JWT mutualisé (transport-agnostique)
+      fastapi/
+        dependencies.py       # make_inject_tenant_uri() — wrapper FastAPI → run_auth_pipeline
+        auth.py               # make_require_auth() — protection sélective opt-in
+        timing.py             # TimingMiddleware
+      fastmcp/
+        dependencies.py       # make_inject_tenant_uri() — wrapper FastMCP → run_auth_pipeline
+        auth.py               # make_require_auth_tool() — protection sélective opt-in
+      jwt/decoder.py          # JWTDecoder — valide JWT via JWKS Keycloak (cache)
+      license/validator.py    # RoleLicenseValidator — vérifie realm role
     output/
       memory/repository.py    # InMemoryRepository[T]
+      memory/cache_adapter.py # MemoryCacheAdapter
       mongodb/repository.py   # MongoDBRepository[T] (motor)
-      mongodb/config.py       # MongoDBConfig
       duckdb/repository.py    # DuckDBRepository[T]
+      redis/cache_adapter.py  # RedisCacheAdapter
+      vault/tenant_adapter.py # VaultTenantResolver
       console/logger.py       # ConsoleLogger (loguru)
   infrastructure/
     config.py                 # AppConfig + load_config() — valide config.yaml
@@ -91,12 +107,15 @@ Méthodes publiques : `create`, `read`, `update`, `delete`, `find_all`, `duplica
 | Méthode                     | Retour          | Usage                              |
 |-----------------------------|-----------------|------------------------------------|
 | `.repository(entity_class)` | `Repository[T]` | Instancie via `build_repository()` |
-| `.fastapi(**kwargs)`        | `FastAPI`       | Crée l'app avec lifespan           |
+| `.fastapi(**kwargs)`        | `FastAPI`       | Crée l'app avec lifespan + OAuth2 Swagger si keycloak configuré |
 | `.fastmcp(name)`            | `FastMCP`       | Crée le serveur MCP                |
+| `.auth_dependency(transport)` | `Callable`    | Retourne `require_auth` (FastAPI ou FastMCP) depuis la config |
 | `.run_api(app)`             | —               | Lance Uvicorn (config `api:`)      |
-| `.run_mcp_stdio(mcp)`       | —               | Transport stdio                    |
 | `.run_mcp_sse(mcp)`         | —               | Transport SSE (config `mcp:`)      |
 | `.run_mcp_http(mcp)`        | —               | Transport streamable-HTTP          |
+| `._cache`                   | `CachePort`     | Cache partagé JWKS + tenant (memory ou Redis selon config) |
+
+> ⚠️ `run_mcp_stdio()` est **supprimé** (ADR-007) — incompatible Kubernetes et auth JWT.
 
 ### `AppConfig` (`infrastructure/config.py`)
 
@@ -132,4 +151,6 @@ make test        # pytest -v
 4. `arclith/infrastructure/config.py` — la config validée
 5. `arclith/infrastructure/repository_factory.py` — le routage des implémentations
 6. `docs/http-conventions.md` — status codes HTTP/REST SOTA
+7. `docs/auth.md` — authentification JWT : tous les patterns FastAPI + FastMCP
+8. `docs/multitenant.md` — isolation multi-tenant via Vault + ContextVar
 

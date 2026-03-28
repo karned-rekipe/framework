@@ -105,7 +105,142 @@ make typecheck
 
 ---
 
-## SK-F05 — Créer un router FastAPI conforme aux conventions HTTP
+## SK-F07 — Implémenter le pipeline d'authentification JWT (SK-AUTH-01)
+
+**Contexte :** ajouter les tests unitaires pour le pipeline JWT mutualisé (actuellement exclu de la coverage).
+
+### Fichiers cibles
+
+```
+tests/units/adapters/input/test_auth_pipeline.py    # run_auth_pipeline (tous cas)
+tests/units/adapters/input/test_fastapi_auth.py     # make_require_auth (FastAPI)
+tests/units/adapters/input/test_fastmcp_auth.py     # make_require_auth_tool (FastMCP)
+```
+
+### Cas à couvrir dans `test_auth_pipeline.py`
+
+- Token valide → retourne les claims
+- Header `Authorization` absent → `AuthPipelineError(401)`
+- Header sans préfixe `Bearer` → `AuthPipelineError(401)`
+- `JWTDecoder.decode()` lève une exception → `AuthPipelineError(401)`
+- Licence invalide (`LicenseValidator.validate()` retourne False) → `AuthPipelineError(403)`
+- Tenant claim absent du token → `AuthPipelineError(401)` (mode multitenant)
+- Résolution tenant OK → `TenantContext` injecté dans le `ContextVar`
+
+### Pattern de test (mock JWTDecoder)
+
+```python
+from unittest.mock import AsyncMock, MagicMock
+from arclith.adapters.input.auth_pipeline import AuthPipelineError, run_auth_pipeline
+
+async def test_valid_token_returns_claims():
+    decoder = AsyncMock()
+    decoder.decode.return_value = {"sub": "user-123", "realm_access": {"roles": []}}
+    claims = await run_auth_pipeline(
+        {"Authorization": "Bearer valid-token"},
+        jwt_decoder=decoder,
+    )
+    assert claims["sub"] == "user-123"
+
+async def test_missing_auth_header_raises():
+    decoder = AsyncMock()
+    with pytest.raises(AuthPipelineError) as exc:
+        await run_auth_pipeline({}, jwt_decoder=decoder)
+    assert exc.value.status_code == 401
+```
+
+### Retirer de coverage omit une fois les tests ajoutés
+
+Dans `pyproject.toml`, retirer les lignes concernées de `[tool.coverage.run] omit`.
+
+---
+
+## SK-F08 — Créer un service avec auth Keycloak complète
+
+**Contexte :** reconstruire `recipe/` ou un nouveau service avec JWT + multitenant.
+Voir `SKILLS.md` (workspace racine) → SK-09 et SK-10 pour le câblage complet.
+
+---
+
+## SK-F09 — Sécuriser des routes FastAPI et tools FastMCP avec `require_auth`
+
+**Contexte :** ajouter la protection JWT Keycloak sur des routes ou tools spécifiques.
+
+> Référence complète : `docs/auth.md`
+
+### Prérequis
+
+`config.yaml` doit contenir la section `keycloak` :
+
+```yaml
+keycloak:
+  url: http://keycloak:8080
+  realm: rekipe
+  audience: rekipe-api  # null = pas de vérification aud
+license:
+  role: rekipe:licensed  # optionnel — omis = pas de vérification licence
+```
+
+### Étapes — FastAPI
+
+1. **Obtenir la dépendance** depuis `Arclith` :
+   ```python
+   require_auth = arclith.auth_dependency()  # transport="api" par défaut
+   ```
+
+2. **Protéger un router entier** :
+   ```python
+   router = APIRouter(prefix="/v1/recipes", dependencies=[Depends(require_auth)])
+   ```
+
+3. **Protéger une route individuelle** :
+   ```python
+   router.add_api_route(..., dependencies=[Depends(require_auth)])
+   ```
+
+4. **Injecter les claims** dans un handler :
+   ```python
+   async def my_endpoint(claims: Annotated[dict, Depends(require_auth)]) -> ...:
+       user_id = claims.get("sub")
+   ```
+
+### Étapes — FastMCP
+
+1. **Obtenir la dépendance MCP** :
+   ```python
+   require_auth_mcp = arclith.auth_dependency(transport="mcp")
+   ```
+
+2. **Protéger un tool** :
+   ```python
+   @mcp.tool
+   async def my_tool(
+       name: str,
+       ctx: fastmcp.Context,
+       _auth: Annotated[dict, Depends(require_auth_mcp)],
+   ) -> dict:
+       ...
+   ```
+
+### Étapes — Pipeline multitenant complet
+
+Voir `docs/multitenant.md` + `docs/auth.md` → section "Pipeline complet".
+
+```python
+inject_tenant = make_inject_tenant_uri(config, jwt_decoder=..., license_validator=..., tenant_resolvers=[...])
+# FastAPI : router = APIRouter(dependencies=[Depends(inject_tenant)])
+# FastMCP : _tenant: Annotated[None, Depends(inject_tenant_mcp)]
+```
+
+### Validation
+
+```bash
+# Override pour les tests
+app.dependency_overrides[require_auth] = lambda: {"sub": "test-user"}
+make test
+```
+
+---
 
 **Contexte :** exposer une nouvelle entité via REST avec les status codes SOTA.
 

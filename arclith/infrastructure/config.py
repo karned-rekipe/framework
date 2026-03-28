@@ -13,10 +13,12 @@ class MongoDBSettings(BaseModel):
     uri: str | None = None
     db_name: str
     collection_name: str | None = None
+    multitenant: bool = False
 
 
 class DuckDBSettings(BaseModel):
     path: str
+    multitenant: bool = False
 
     @field_validator("path")
     @classmethod
@@ -47,11 +49,20 @@ class SoftDeleteSettings(BaseModel):
 class AdaptersSettings(BaseModel):
     logger: Literal["console"] = "console"
     repository: Literal["memory", "mongodb", "duckdb"] = "memory"
-    multitenant: bool = False
     mongodb: MongoDBSettings | None = None
     duckdb: DuckDBSettings | None = None
 
-    @model_validator(mode = "after")
+    @property
+    def multitenant(self) -> bool:
+        match self.repository:
+            case "mongodb":
+                return self.mongodb.multitenant if self.mongodb else False
+            case "duckdb":
+                return self.duckdb.multitenant if self.duckdb else False
+            case _:
+                return False
+
+    @model_validator(mode="after")
     def validate_repository_config(self) -> "AdaptersSettings":
         if self.repository == "mongodb":
             if self.mongodb is None:
@@ -78,6 +89,30 @@ class ProbeSettings(BaseModel):
     enabled: bool = True
 
 
+class KeycloakSettings(BaseModel):
+    url: str
+    realm: str
+    audience: str | None = None
+
+
+class TenantSettings(BaseModel):
+    vault_addr: str = "http://127.0.0.1:8200"
+    vault_mount: str = "kv"
+    vault_path_prefix: str
+    tenant_claim: str = "sub"
+
+
+class LicenseSettings(BaseModel):
+    role: str = "rekipe:licensed"
+
+
+class CacheSettings(BaseModel):
+    backend: Literal["memory", "redis"] = "memory"
+    redis_url: str = "redis://127.0.0.1:6379"
+    jwks_ttl: int = 3600
+    tenant_uri_ttl: int = 300
+
+
 class AppSettings(BaseModel):
     name: str = "arclith-service"
     version: str = "0.0.0"
@@ -91,6 +126,10 @@ class AppConfig(BaseModel):
     api: ApiSettings = ApiSettings()
     mcp: McpSettings = McpSettings()
     probe: ProbeSettings = ProbeSettings()
+    keycloak: KeycloakSettings | None = None
+    tenant: TenantSettings | None = None
+    license: LicenseSettings | None = None
+    cache: CacheSettings = CacheSettings()
 
 
 def load_config(path: Path) -> AppConfig:
@@ -98,9 +137,10 @@ def load_config(path: Path) -> AppConfig:
         data = yaml.safe_load(f)
     data = data or {}
 
+    from contextlib import suppress
+
     from arclith.infrastructure.secret_factory import build_secret_resolver
     from arclith.infrastructure.secret_loader import resolve_dict_secrets
-    from contextlib import suppress
 
     resolver = build_secret_resolver(data, path.parent)
     if resolver:

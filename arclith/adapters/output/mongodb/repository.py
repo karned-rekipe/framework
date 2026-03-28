@@ -3,7 +3,7 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
 from typing import Any, Generic, Optional, TypeVar
 from uuid6 import UUID, uuid7
 
-from arclith.adapters.context import get_tenant_uri
+from arclith.adapters.context import get_adapter_tenant_context
 from arclith.adapters.output.mongodb.config import MongoDBConfig
 from arclith.domain.models.entity import Entity
 from arclith.domain.ports.logger import Logger
@@ -22,11 +22,12 @@ class _MongoCollection:
         self._client: AsyncIOMotorClient | None = None
 
     async def __aenter__(self) -> AsyncIOMotorCollection:
-        effective_uri = get_tenant_uri() or self._config.uri
+        coords = get_adapter_tenant_context("mongodb")
+        effective_uri = (coords.get("uri") if coords else None) or self._config.uri
+        effective_db = (coords.get("db_name") if coords else None) or self._config.db_name
         if not effective_uri:
             raise ValueError("Aucune URI MongoDB : configurez uri ou activez le mode multitenant")
 
-        # Réutilise un client existant pour cette URI si possible, sinon en crée un nouveau.
         if effective_uri in self._clients:
             self._client = self._clients[effective_uri]
         else:
@@ -34,16 +35,16 @@ class _MongoCollection:
             self._clients[effective_uri] = self._client
             self._logger.debug(
                 "🔌 MongoDB client created",
-                db=self._config.db_name,
+                db=effective_db,
                 collection=self._config.collection_name,
             )
 
         self._logger.debug(
             "🔌 MongoDB collection acquired",
-            db=self._config.db_name,
+            db=effective_db,
             collection=self._config.collection_name,
         )
-        return self._client[self._config.db_name][self._config.collection_name]  # type: ignore[return-value, index]
+        return self._client[effective_db][self._config.collection_name]  # type: ignore[return-value, index]
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         # Ne ferme plus le client ici pour conserver le pool Motor.

@@ -7,7 +7,7 @@ from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack, asynccontextmanager
 from functools import cached_property
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterator, TypeVar
+from typing import TYPE_CHECKING, Any, AsyncIterator, Literal, TypeVar
 
 from arclith.domain.models.entity import Entity
 from arclith.domain.ports.logger import Logger, LogLevel
@@ -63,15 +63,21 @@ class Arclith:
         return build_repository(self.config, entity_class, self.logger)
     def fastapi(self, **kwargs: Any) -> "FastAPI":
         from fastapi import FastAPI
-        
-        # Injecter title, version et description depuis la config si non fournis
-        if "title" not in kwargs:
-            kwargs["title"] = self.config.app.name
-        if "version" not in kwargs:
-            kwargs["version"] = self.config.app.version
-        if "description" not in kwargs:
-            kwargs["description"] = self.config.app.description
-        
+
+        # Inject title/version/description from config if not overridden
+        kwargs.setdefault("title", self.config.app.name)
+        kwargs.setdefault("version", self.config.app.version)
+        kwargs.setdefault("description", self.config.app.description)
+
+        # Pre-fill Swagger UI OAuth2 when Keycloak is configured
+        if self.config.keycloak and "swagger_ui_init_oauth" not in kwargs:
+            kc = self.config.keycloak
+            kwargs["swagger_ui_init_oauth"] = {
+                "clientId": kc.audience or "arclith-client",
+                "usePkceWithAuthorizationCodeGrant": True,
+                "scopes": "openid profile",
+            }
+
         user_lifespan = kwargs.pop("lifespan", None)
         arclith_self = self
 
@@ -98,7 +104,97 @@ class Arclith:
         from arclith.adapters.input.fastapi.timing import TimingMiddleware
         app.add_middleware(TimingMiddleware, logger=self.logger)
 
+        # Inject Keycloak OAuth2 PKCE security scheme into the OpenAPI spec
+        if self.config.keycloak:
+            self._patch_openapi_keycloak(app)
+
         return app
+
+    def _patch_openapi_keycloak(self, app: "FastAPI") -> None:
+        """Inject Keycloak OAuth2 PKCE security scheme into the OpenAPI spec.
+
+        Adds ``components.securitySchemes.keycloak`` so Swagger UI shows an
+        "Authorize" button that triggers the PKCE flow against Keycloak.
+        Endpoints using ``make_require_auth`` / ``HTTPBearer`` also expose
+        the ``bearerAuth`` scheme automatically via FastAPI introspection.
+        """
+        kc = self.config.keycloak
+        if kc is None:
+            return
+        base = f"{kc.url}/realms/{kc.realm}/protocol/openid-connect"
+        _original = app.openapi
+
+        def _patched_openapi() -> dict:
+            if app.openapi_schema:
+                return app.openapi_schema
+            schema: dict = _original()
+            schema.setdefault("components", {}).setdefault("securitySchemes", {})["keycloak"] = {
+                "type": "oauth2",
+                "flows": {
+                    "authorizationCode": {
+                        "authorizationUrl": f"{base}/auth",
+                        "tokenUrl": f"{base}/token",
+                        "scopes": {
+                            "openid": "OpenID Connect",
+                            "profile": "User profile",
+                        },
+                    }
+                },
+            }
+            app.openapi_schema = schema
+            return schema
+
+        app.openapi = _patched_openapi  # type: ignore[method-assign]
+
+    def auth_dependency(self, transport: Literal["api", "mcp"] = "api") -> Callable:
+        """Build a ``require_auth`` dependency from the current Keycloak config.
+
+        Requires ``config.keycloak`` to be set.
+
+        - ``transport="api"`` → FastAPI dependency (use with ``Depends()``)
+        - ``transport="mcp"`` → FastMCP dependency (use in tool signature)
+
+        Returns a callable that validates the JWT and optional licence.
+        No tenant resolution — use ``make_inject_tenant_uri`` for the full pipeline.
+
+        Usage (FastAPI router)::
+
+            require_auth = arclith.auth_dependency()
+            router = APIRouter(dependencies=[Depends(require_auth)])
+
+        Usage (FastMCP tool)::
+
+            require_auth = arclith.auth_dependency(transport="mcp")
+
+            @mcp.tool
+            async def my_tool(ctx: fastmcp.Context, _auth=Depends(require_auth)) -> str:
+                ...
+        """
+        if self.config.keycloak is None:
+            raise RuntimeError(
+                "config.keycloak est requis pour utiliser auth_dependency(). "
+                "Ajouter la section keycloak dans config.yaml."
+            )
+        from arclith.adapters.input.jwt.decoder import JWTDecoder
+        from arclith.adapters.input.license.validator import RoleLicenseValidator
+
+        kc = self.config.keycloak
+        decoder = JWTDecoder(
+            jwks_uri=f"{kc.url}/realms/{kc.realm}/protocol/openid-connect/certs",
+            audience=kc.audience,
+            cache=self._cache,
+            ttl_s=self.config.cache.jwks_ttl,
+        )
+        license_validator = (
+            RoleLicenseValidator(self.config.license.role) if self.config.license else None
+        )
+
+        if transport == "mcp":
+            from arclith.adapters.input.fastmcp.auth import make_require_auth_tool
+            return make_require_auth_tool(jwt_decoder=decoder, license_validator=license_validator)
+
+        from arclith.adapters.input.fastapi.auth import make_require_auth
+        return make_require_auth(jwt_decoder=decoder, license_validator=license_validator)
 
     # ── probe helpers ─────────────────────────────────────────────────────────
 
@@ -183,8 +279,6 @@ class Arclith:
             log_config=_UVICORN_LOG_CONFIG,
         )
 
-    def run_mcp_stdio(self, mcp: "_fastmcp.FastMCP") -> None:
-        mcp.run(transport="stdio")
 
     def run_mcp_sse(self, mcp: "_fastmcp.FastMCP") -> None:
         mcp.run(transport="sse", host=self.config.mcp.host, port=self.config.mcp.port)
@@ -193,6 +287,19 @@ class Arclith:
         mcp.run(transport="streamable-http", host=self.config.mcp.host, port=self.config.mcp.port)
 
     # ── private cached helpers ────────────────────────────────────────────────
+
+    @cached_property
+    def _cache(self) -> Any:
+        """CachePort instance shared by JWTDecoder and VaultTenantResolver.
+
+        Uses Redis when ``config.cache.backend == "redis"`` (recommended for production
+        and multi-replica deployments), falls back to in-process memory otherwise.
+        """
+        if self.config.cache.backend == "redis":
+            from arclith.adapters.output.redis.cache_adapter import RedisCacheAdapter
+            return RedisCacheAdapter(self.config.cache.redis_url)
+        from arclith.adapters.output.memory.cache_adapter import MemoryCacheAdapter
+        return MemoryCacheAdapter()
 
     @cached_property
     def _metrics_registry(self) -> Any:
