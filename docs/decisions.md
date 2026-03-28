@@ -91,7 +91,52 @@ données et à la lecture de fichiers plats. SQLite nécessiterait un ORM ou du 
 
 ---
 
-## ADR-006 — FastMCP comme couche MCP plutôt qu'une implémentation manuelle
+## ADR-007 — Suppression du transport MCP stdio
+
+**Date :** 2026-03-28
+
+**Contexte :** `arclith` exposait trois transports MCP : stdio, SSE et streamable-HTTP. Le transport stdio est
+fondamentalement incompatible avec un déploiement Kubernetes (il repose sur stdin/stdout d'un subprocess local) et ne
+supporte pas les headers HTTP, rendant toute authentification JWT impossible.
+
+**Décision :** supprimer `run_mcp_stdio()` de `Arclith`.
+
+**Pourquoi pas l'alternative (garder stdio pour usage local) :**
+Garder du code mort augmente la surface de test et introduit une confusion : les développeurs pourraient croire que le
+transport stdio est supporté en production. Le debug local passe par HTTP (127.0.0.1) avec les mêmes outils.
+
+**Conséquence sur le code :**
+
+- `Arclith.run_mcp_stdio()` supprimé.
+- `main_mcp_stdio.py` ne doit plus être créé dans les repos consommateurs.
+- Seuls `run_mcp_sse()` et `run_mcp_http()` sont conservés.
+
+---
+
+## ADR-008 — Pipeline d'authentification JWT mutualisé FastAPI / FastMCP
+
+**Date :** 2026-03-28
+
+**Contexte :** FastAPI et FastMCP ont fondamentalement le même besoin : extraire un Bearer token, le valider via
+Keycloak JWKS, vérifier la licence, résoudre le tenant. La seule différence est la façon d'accéder aux headers HTTP
+(`Request` vs `fastmcp.Context`).
+
+**Décision :** extraire le cœur du pipeline dans `adapters/input/auth_pipeline.py` → `run_auth_pipeline(headers, ...)`.
+Les adapters FastAPI et FastMCP sont de simples wrappers qui extraient les headers selon leur transport puis appellent
+`run_auth_pipeline`. Signatures identiques pour `make_inject_tenant_uri`.
+
+**Pourquoi pas l'alternative (deux implémentations séparées) :**
+La logique dupliquée crée une dérive inévitable. Un bugfix ou une évolution (nouveau claim, nouveau type de resolver)
+devrait être appliqué deux fois.
+
+**Conséquence sur le code :**
+
+- `auth_pipeline.py` : unique source de vérité pour la logique JWT.
+- `fastapi/dependencies.py` et `fastmcp/dependencies.py` : wrappers ~10 lignes.
+- `fastapi/auth.py` et `fastmcp/auth.py` : protection sélective opt-in (par route ou par tool).
+- `Arclith.auth_dependency(transport)` : factory qui construit le bon `require_auth` depuis la config.
+- Tests du pipeline mutualisé : un seul fichier `tests/units/adapters/input/test_auth_pipeline.py` (à créer — SK-AUTH-01).
+
 
 **Contexte :** Exposer les services via le Model Context Protocol.
 

@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import asyncio
 import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, Request
 
-from arclith.adapters.context import set_tenant_context
-from arclith.domain.models.tenant import TenantContext
+from arclith.adapters.input.auth_pipeline import AuthPipelineError, run_auth_pipeline
 from arclith.infrastructure.config import AppConfig
 
 if TYPE_CHECKING:
@@ -43,53 +41,21 @@ def make_inject_tenant_uri(
     async def inject_tenant_uri(request: Request) -> None:
         if not config.adapters.multitenant:
             return
-
-        auth = request.headers.get("Authorization", "")
-        if not auth.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="Authorization header manquant ou invalide")
-        token = auth.removeprefix("Bearer ")
-
         if jwt_decoder is None:
             raise RuntimeError("jwt_decoder requis en mode multitenant")
-        claims: dict = await jwt_decoder.decode(token)
-
-        if license_validator is not None and not license_validator.validate(claims):
-            raise HTTPException(status_code=403, detail="Licence invalide ou absente")
-
         tenant_claim = config.tenant.tenant_claim if config.tenant else "sub"
-        tenant_id: str | None = claims.get(tenant_claim)
-        if not tenant_id:
-            raise HTTPException(status_code=401, detail=f"Claim '{tenant_claim}' absent du token")
-
-        resolvers = tenant_resolvers or []
-        if not resolvers:
-            raise RuntimeError("tenant_resolvers requis en mode multitenant")
-
-        # Résolution parallèle — un resolver par adaptateur multitenant
-        results = await asyncio.gather(*[r.resolve(tenant_id) for r in resolvers])
-
-        # Merge : tous les adapters dans un seul TenantContext
-        merged = TenantContext(adapters={
-            adapter: coords
-            for ctx in results
-            for adapter, coords in ctx.adapters.items()
-        })
-        set_tenant_context(merged)
+        try:
+            await run_auth_pipeline(
+                request.headers,
+                jwt_decoder=jwt_decoder,
+                license_validator=license_validator,
+                tenant_resolvers=tenant_resolvers or [],
+                tenant_claim=tenant_claim,
+            )
+        except AuthPipelineError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
     return inject_tenant_uri
-
-
-async def get_duration_ms(request: Request) -> float:
-    """FastAPI dependency — returns elapsed ms since request start.
-
-    Requires ``TimingMiddleware`` to be active (injected by ``Arclith.fastapi()``).
-    Returns 0.0 if middleware is absent.
-    """
-    start: float | None = getattr(request.state, "start_time", None)
-    if start is None:
-        return 0.0
-    return round((time.monotonic() - start) * 1000)
-
 
 
 async def get_duration_ms(request: Request) -> float:

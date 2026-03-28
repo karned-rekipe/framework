@@ -105,7 +105,62 @@ make typecheck
 
 ---
 
-## SK-F05 — Créer un router FastAPI conforme aux conventions HTTP
+## SK-F07 — Implémenter le pipeline d'authentification JWT (SK-AUTH-01)
+
+**Contexte :** ajouter les tests unitaires pour le pipeline JWT mutualisé (actuellement exclu de la coverage).
+
+### Fichiers cibles
+
+```
+tests/units/adapters/input/test_auth_pipeline.py    # run_auth_pipeline (tous cas)
+tests/units/adapters/input/test_fastapi_auth.py     # make_require_auth (FastAPI)
+tests/units/adapters/input/test_fastmcp_auth.py     # make_require_auth_tool (FastMCP)
+```
+
+### Cas à couvrir dans `test_auth_pipeline.py`
+
+- Token valide → retourne les claims
+- Header `Authorization` absent → `AuthPipelineError(401)`
+- Header sans préfixe `Bearer` → `AuthPipelineError(401)`
+- `JWTDecoder.decode()` lève une exception → `AuthPipelineError(401)`
+- Licence invalide (`LicenseValidator.validate()` retourne False) → `AuthPipelineError(403)`
+- Tenant claim absent du token → `AuthPipelineError(401)` (mode multitenant)
+- Résolution tenant OK → `TenantContext` injecté dans le `ContextVar`
+
+### Pattern de test (mock JWTDecoder)
+
+```python
+from unittest.mock import AsyncMock, MagicMock
+from arclith.adapters.input.auth_pipeline import AuthPipelineError, run_auth_pipeline
+
+async def test_valid_token_returns_claims():
+    decoder = AsyncMock()
+    decoder.decode.return_value = {"sub": "user-123", "realm_access": {"roles": []}}
+    claims = await run_auth_pipeline(
+        {"Authorization": "Bearer valid-token"},
+        jwt_decoder=decoder,
+    )
+    assert claims["sub"] == "user-123"
+
+async def test_missing_auth_header_raises():
+    decoder = AsyncMock()
+    with pytest.raises(AuthPipelineError) as exc:
+        await run_auth_pipeline({}, jwt_decoder=decoder)
+    assert exc.value.status_code == 401
+```
+
+### Retirer de coverage omit une fois les tests ajoutés
+
+Dans `pyproject.toml`, retirer les lignes concernées de `[tool.coverage.run] omit`.
+
+---
+
+## SK-F08 — Créer un service avec auth Keycloak complète
+
+**Contexte :** reconstruire `recipe/` ou un nouveau service avec JWT + multitenant.
+Voir `SKILLS.md` (workspace racine) → SK-09 et SK-10 pour le câblage complet.
+
+---
 
 **Contexte :** exposer une nouvelle entité via REST avec les status codes SOTA.
 
