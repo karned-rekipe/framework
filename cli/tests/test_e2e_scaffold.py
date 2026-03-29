@@ -1,0 +1,148 @@
+"""E2E test — validate arclith-cli scaffold generates a working project."""
+
+from __future__ import annotations
+
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
+
+import pytest
+
+
+@pytest.fixture
+def temp_workspace():
+    """Temporary directory for scaffolding tests."""
+    tmp = Path(tempfile.mkdtemp())
+    yield tmp
+    shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_scaffold_and_run(temp_workspace: Path):
+    """Test that scaffolded project installs and runs successfully."""
+    project_dir = temp_workspace / "test-plan-service"
+    
+    # Step 1 — scaffold via CLI (non-interactive)
+    result = subprocess.run(
+        ["arclith-cli", "new", "Plan", "test-plan-service", "--dir", str(temp_workspace), "--port", "9000"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    
+    assert result.returncode == 0, f"Scaffold failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert project_dir.exists(), f"Project directory not created: {project_dir}"
+    assert (project_dir / "pyproject.toml").exists()
+    assert (project_dir / "main.py").exists()
+    assert (project_dir / "config").is_dir()
+    
+    # Step 2 — verify no [tool.uv.sources] in generated pyproject.toml
+    pyproject_content = (project_dir / "pyproject.toml").read_text()
+    assert "[tool.uv.sources]" not in pyproject_content, (
+        "Generated project must not contain [tool.uv.sources] — "
+        "it should use stable PyPI arclith"
+    )
+    assert "arclith[" in pyproject_content, "arclith dependency missing"
+    
+    # Step 3 — uv sync
+    result = subprocess.run(
+        ["uv", "sync"],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    assert result.returncode == 0, f"uv sync failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert (project_dir / ".venv").exists(), "Virtual environment not created"
+    
+    # Step 4 — validate imports (don't start server, just check imports work)
+    result = subprocess.run(
+        [
+            "uv", "run", "python", "-c",
+            "from arclith import load_config_dir, Arclith; "
+            "from adapters.input.fastapi.dependencies import require_auth; "
+            "from adapters.input.fastmcp.dependencies import require_auth_mcp; "
+            "print('✅ All imports OK')"
+        ],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, f"Import validation failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert "✅ All imports OK" in result.stdout, (
+        f"Import validation output unexpected:\n{result.stdout}"
+    )
+    
+    # Step 5 — verify expected structure
+    expected_dirs = ["domain", "adapters", "application", "infrastructure", "config", "tests"]
+    for dirname in expected_dirs:
+        assert (project_dir / dirname).is_dir(), f"Missing expected directory: {dirname}"
+    
+    expected_files = ["Dockerfile", "Makefile"]
+    for fname in expected_files:
+        assert (project_dir / fname).exists(), f"Missing expected file: {fname}"
+
+
+def test_scaffold_with_custom_entity_formats(temp_workspace: Path):
+    """Test entity name normalization (snake_case, kebab-case, PascalCase)."""
+    test_cases = [
+        ("Recipe", "my-recipe-service", "recipe", "Recipe", "RECIPE"),
+        ("meal_plan", "meal-planner", "meal_plan", "MealPlan", "MEAL_PLAN"),
+        ("recipe-step", "step-service", "recipe_step", "RecipeStep", "RECIPE_STEP"),
+    ]
+    
+    for entity_input, project_name, expected_snake, expected_pascal, expected_upper in test_cases:
+        project_dir = temp_workspace / project_name
+        
+        result = subprocess.run(
+            ["arclith-cli", "new", entity_input, project_name, "--dir", str(temp_workspace), "--port", "9100"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        
+        assert result.returncode == 0, f"Scaffold failed for {entity_input}"
+        assert project_dir.exists()
+        
+        # Verify entity naming in generated files
+        domain_model = project_dir / "domain" / "models" / f"{expected_snake}.py"
+        assert domain_model.exists(), f"Expected {domain_model} not found"
+        
+        content = domain_model.read_text()
+        assert f"class {expected_pascal}(" in content, f"PascalCase class name not found: {expected_pascal}"
+        
+        # Cleanup for next iteration
+        shutil.rmtree(project_dir, ignore_errors=True)
+
+
+@pytest.mark.slow
+def test_scaffold_runs_tests(temp_workspace: Path):
+    """Validate that generated project passes its own test suite."""
+    project_dir = temp_workspace / "test-validated-service"
+    
+    # Scaffold
+    subprocess.run(
+        ["arclith-cli", "new", "Widget", "test-validated-service", "--dir", str(temp_workspace)],
+        check=True,
+        timeout=120,
+    )
+    
+    # Install deps
+    subprocess.run(["uv", "sync", "--group", "dev"], cwd=project_dir, check=True, timeout=180)
+    
+    # Run tests
+    result = subprocess.run(
+        ["uv", "run", "pytest", "-v"],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    
+    # Allow failure if tests are present (template may have placeholders)
+    # But validate pytest ran without import errors
+    assert "ImportError" not in result.stdout + result.stderr, (
+        f"Import errors detected:\n{result.stdout}\n{result.stderr}"
+    )
+

@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.1] — 2026-03-30
+
+### Fixed
+
+- **`load_config_dir` export** — ajout dans `__all__` (absent de PyPI 0.7.0, causait `ImportError` dans projets scaffoldés par `arclith-cli`)
+- **`load_config_file` export** — ajout dans `__all__` pour compléter l'API publique
+- **`export_config_yaml` export** — ajout dans `__all__` pour CLI `export-config`
+
+---
+
 ## [0.7.0] — 2026-03-29
 
 ### Added
