@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "arclith-cli"
+version = "0.1.0"
+description = "CLI scaffolding tool for arclith — hexagonal architecture framework"
+license = { file = "../LICENSE" }
+requires-python = ">=3.13"
+authors = [
+    { name = "Killian KOPP", email = "killiankopp@gmail.com" }
+]
+keywords = ["arclith", "scaffold", "hexagonal-architecture", "cli", "ddd"]
+dependencies = [
+    "typer>=0.15.0",
+    "rich>=13.0.0",
+    "httpx>=0.27.0",
+]
+
+[project.scripts]
+arclith-cli = "arclith_cli.main:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["arclith_cli"]
+
