@@ -11,6 +11,7 @@ from rich.tree import Tree
 from . import __version__
 from .rename import EntityNames, apply_rename
 from .scaffold import download_and_extract
+from .updater import run_update
 
 app = typer.Typer(
     name="arclith-cli",
@@ -80,6 +81,17 @@ def new(
 
     console.print("[green]✓[/green] Rename complete")
     _print_summary(target_dir, project_name, port)
+
+
+@app.command()
+def update(
+    ref: Annotated[
+        str | None,
+        typer.Option("--ref", help="Branche ou tag Git cible (défaut : main)"),
+    ] = None,
+) -> None:
+    """Mettre à jour arclith-cli vers la dernière version depuis GitHub."""
+    run_update(ref=ref)
 
 
 @app.command()
