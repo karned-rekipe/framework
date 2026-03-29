@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "arclith-cli"
 version = "0.7.1"
 description = "CLI scaffolding tool for arclith — hexagonal architecture framework"
-license = { file = "../LICENSE" }
+license = { file = "LICENSE" }
 requires-python = ">=3.13"
 authors = [
     { name = "Killian KOPP", email = "killiankopp@gmail.com" }
