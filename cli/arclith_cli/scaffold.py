@@ -14,7 +14,7 @@ _DIRS_TO_REMOVE = {
     ".ruff_cache", ".idea", ".github", ".git", ".files", ".dev", "htmlcov",
 }
 _FILES_TO_REMOVE = {
-    ".coverage", "uv.lock", "AGENTS.md", "README.md", ".gitignore",
+    ".coverage", "uv.lock", "AGENTS.md", "README.md", ".gitignore", "config.yaml",
 }
 _DATA_FILES_TO_REMOVE = {"ingredient.csv"}
 

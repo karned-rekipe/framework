@@ -11,6 +11,8 @@ from rich.prompt import Prompt
 from rich.tree import Tree
 
 from . import __version__
+from .add_adapter import add_adapter_cmd
+from .export_config import export_config_cmd
 from .rename import EntityNames, apply_rename
 from .scaffold import download_and_extract
 from .updater import run_update
@@ -106,6 +108,23 @@ def update(
 def version() -> None:
     """Show the arclith-cli version."""
     console.print(f"arclith-cli [bold]{__version__}[/bold]")
+
+
+@app.command(name="add-adapter")
+def add_adapter() -> None:
+    """Wizard interactif pour scaffolder un nouvel [bold]adapter output[/bold] dans le projet courant."""
+    add_adapter_cmd()
+
+
+@app.command(name="export-config")
+def export_config(
+    output: Annotated[
+        Path,
+        typer.Option("--output", "-o", help="Chemin du fichier YAML généré"),
+    ] = Path("config.yaml"),
+) -> None:
+    """Générer un [bold]config.yaml[/bold] unifié depuis [bold]config/[/bold] pour déploiement K8s."""
+    export_config_cmd(output=output)
 
 
 # ── Prompts interactifs ───────────────────────────────────────────────────────
