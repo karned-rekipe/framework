@@ -25,6 +25,7 @@ __all__ = [
     "InMemoryRepository",
     "MongoDBConfig",
     "AppConfig",
+    "load_config",
     "load_config_dir",
     "load_config_file",
     "export_config_yaml",
