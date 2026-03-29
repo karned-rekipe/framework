@@ -8,9 +8,16 @@ from arclith.infrastructure.config import (
     AppConfig,
     DuckDBSettings,
     SoftDeleteSettings,
+    _deep_merge,
+    _resolve_key_path,
+    export_config_yaml,
+    load_config_dir,
+    load_config_file,
     load_config,
 )
 
+
+# ── AppConfig defaults ────────────────────────────────────────────────────────
 
 def test_default_config_uses_memory():
     assert AppConfig().adapters.repository == "memory"
@@ -20,29 +27,160 @@ def test_default_retention_is_none():
     assert AppConfig().soft_delete.retention_days is None
 
 
-def _write_yaml(data: dict) -> Path:
-    f = tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False)
-    yaml.dump(data, f)
-    f.close()
-    return Path(f.name)
+# ── _resolve_key_path ─────────────────────────────────────────────────────────
+
+def test_resolve_root_file():
+    assert _resolve_key_path(Path("app.yaml")) == ["app"]
 
 
-def test_load_config_memory():
-    path = _write_yaml({"adapters": {"repository": "memory"}})
-    config = load_config(path)
-    path.unlink()
+def test_resolve_root_soft_delete():
+    assert _resolve_key_path(Path("soft_delete.yaml")) == ["soft_delete"]
+
+
+def test_resolve_root_secrets():
+    assert _resolve_key_path(Path("secrets.yaml")) == ["secrets"]
+
+
+def test_resolve_adapters_selector():
+    assert _resolve_key_path(Path("adapters/adapters.yaml")) == ["adapters"]
+
+
+def test_resolve_output_adapter():
+    assert _resolve_key_path(Path("adapters/output/mongodb.yaml")) == ["adapters", "mongodb"]
+    assert _resolve_key_path(Path("adapters/output/duckdb.yaml")) == ["adapters", "duckdb"]
+
+
+def test_resolve_input_alias_fastapi():
+    assert _resolve_key_path(Path("adapters/input/fastapi.yaml")) == ["api"]
+
+
+def test_resolve_input_alias_fastmcp():
+    assert _resolve_key_path(Path("adapters/input/fastmcp.yaml")) == ["mcp"]
+
+
+def test_resolve_input_no_alias():
+    assert _resolve_key_path(Path("adapters/input/keycloak.yaml")) == ["keycloak"]
+    assert _resolve_key_path(Path("adapters/input/cache.yaml")) == ["cache"]
+    assert _resolve_key_path(Path("adapters/input/tenant.yaml")) == ["tenant"]
+
+
+def test_resolve_unknown_path_returns_empty():
+    assert _resolve_key_path(Path("some/deep/unknown/path.yaml")) == []
+
+
+# ── _deep_merge ───────────────────────────────────────────────────────────────
+
+def test_deep_merge_simple():
+    result = _deep_merge({"a": 1}, {"b": 2})
+    assert result == {"a": 1, "b": 2}
+
+
+def test_deep_merge_override():
+    result = _deep_merge({"a": 1, "b": 2}, {"b": 99})
+    assert result == {"a": 1, "b": 99}
+
+
+def test_deep_merge_nested():
+    base = {"adapters": {"repository": "memory", "mongodb": {"db_name": "old"}}}
+    override = {"adapters": {"mongodb": {"db_name": "new", "multitenant": True}}}
+    result = _deep_merge(base, override)
+    assert result["adapters"]["repository"] == "memory"
+    assert result["adapters"]["mongodb"]["db_name"] == "new"
+    assert result["adapters"]["mongodb"]["multitenant"] is True
+
+
+def test_deep_merge_does_not_mutate_base():
+    base = {"a": {"b": 1}}
+    _deep_merge(base, {"a": {"b": 2}})
+    assert base["a"]["b"] == 1
+
+
+# ── load_config_dir ───────────────────────────────────────────────────────────
+
+def _make_config_dir(files: dict[str, dict]) -> Path:
+    """Helper: create a temp config/ directory with the given files."""
+    tmp = Path(tempfile.mkdtemp())
+    for rel, content in files.items():
+        dest = tmp / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(yaml.dump(content))
+    return tmp
+
+
+def test_load_config_dir_empty_uses_defaults():
+    tmp = Path(tempfile.mkdtemp())
+    config = load_config_dir(tmp)
     assert config.adapters.repository == "memory"
 
 
-def test_load_empty_file_uses_defaults():
-    f = tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False)
-    f.write("")
-    f.close()
-    path = Path(f.name)
-    config = load_config(path)
-    path.unlink()
+def test_load_config_dir_memory():
+    path = _make_config_dir({"adapters/adapters.yaml": {"repository": "memory"}})
+    config = load_config_dir(path)
     assert config.adapters.repository == "memory"
 
+
+def test_load_config_dir_app_section():
+    path = _make_config_dir({"app.yaml": {"name": "TestApp", "version": "1.2.3"}})
+    config = load_config_dir(path)
+    assert config.app.name == "TestApp"
+    assert config.app.version == "1.2.3"
+
+
+def test_load_config_dir_api_via_fastapi_alias():
+    path = _make_config_dir({"adapters/input/fastapi.yaml": {"port": 9999}})
+    config = load_config_dir(path)
+    assert config.api.port == 9999
+
+
+def test_load_config_dir_mcp_via_fastmcp_alias():
+    path = _make_config_dir({"adapters/input/fastmcp.yaml": {"port": 8888}})
+    config = load_config_dir(path)
+    assert config.mcp.port == 8888
+
+
+def test_load_config_dir_mongodb_scoped():
+    path = _make_config_dir({
+        "adapters/adapters.yaml": {"repository": "mongodb"},
+        "adapters/output/mongodb.yaml": {"db_name": "mydb", "multitenant": False},
+    })
+    config = load_config_dir(path)
+    assert config.adapters.repository == "mongodb"
+    assert config.adapters.mongodb is not None
+    assert config.adapters.mongodb.db_name == "mydb"
+
+
+def test_load_config_dir_duckdb_scoped():
+    path = _make_config_dir({
+        "adapters/adapters.yaml": {"repository": "duckdb"},
+        "adapters/output/duckdb.yaml": {"path": "data/"},
+    })
+    config = load_config_dir(path)
+    assert config.adapters.duckdb is not None
+    assert config.adapters.duckdb.path == "data/"
+
+
+def test_load_config_dir_soft_delete():
+    path = _make_config_dir({"soft_delete.yaml": {"retention_days": 7}})
+    config = load_config_dir(path)
+    assert config.soft_delete.retention_days == 7
+
+
+def test_load_config_dir_unknown_path_ignored():
+    path = _make_config_dir({
+        "some/deep/unknown.yaml": {"foo": "bar"},
+        "app.yaml": {"name": "OK"},
+    })
+    config = load_config_dir(path)
+    assert config.app.name == "OK"
+
+
+def test_load_config_dir_raises_if_not_directory():
+    with tempfile.NamedTemporaryFile(suffix=".yaml") as f:
+        with pytest.raises(ValueError, match="config directory"):
+            load_config_dir(Path(f.name))
+
+
+# ── DuckDBSettings / SoftDeleteSettings ──────────────────────────────────────
 
 def test_duckdb_settings_file_path():
     s = DuckDBSettings(path="data/entities.csv")
@@ -70,7 +208,6 @@ def test_soft_delete_zero_is_valid():
 
 
 def test_mongodb_uri_optional_at_parse_time():
-    # uri can be None at parse time — resolved via secrets at runtime
     config = AppConfig.model_validate({
         "adapters": {
             "repository": "mongodb",
@@ -101,3 +238,122 @@ def test_mongodb_requires_section():
     from pydantic import ValidationError
     with pytest.raises(ValidationError):
         AppConfig.model_validate({"adapters": {"repository": "mongodb"}})
+
+
+# ── load_config_file ──────────────────────────────────────────────────────────
+
+def test_load_config_file_simple():
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump({"adapters": {"repository": "memory"}}, f)
+        path = Path(f.name)
+    config = load_config_file(path)
+    path.unlink()
+    assert config.adapters.repository == "memory"
+
+
+def test_load_config_file_full_sections():
+    data = {
+        "app": {"name": "MyApp"},
+        "api": {"port": 9001},
+        "adapters": {"repository": "memory"},
+    }
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(data, f)
+        path = Path(f.name)
+    config = load_config_file(path)
+    path.unlink()
+    assert config.app.name == "MyApp"
+    assert config.api.port == 9001
+
+
+def test_load_config_file_raises_if_not_file():
+    with pytest.raises(ValueError, match="YAML file"):
+        load_config_file(Path(tempfile.mkdtemp()))
+
+
+# ── export_config_yaml ────────────────────────────────────────────────────────
+
+def test_export_config_yaml_creates_file():
+    config_dir = _make_config_dir({
+        "app.yaml": {"name": "ExportTest"},
+        "adapters/adapters.yaml": {"repository": "memory"},
+    })
+    out = config_dir / "config.yaml"
+    export_config_yaml(config_dir, out)
+    assert out.exists()
+
+
+def test_export_config_yaml_content_is_valid_yaml():
+    config_dir = _make_config_dir({
+        "app.yaml": {"name": "RoundTrip"},
+        "adapters/adapters.yaml": {"repository": "memory"},
+        "adapters/input/fastapi.yaml": {"port": 7777},
+    })
+    out = config_dir / "config.yaml"
+    export_config_yaml(config_dir, out)
+    with open(out) as f:
+        data = yaml.safe_load(f)
+    assert data["app"]["name"] == "RoundTrip"
+    assert data["api"]["port"] == 7777
+
+
+def test_export_config_yaml_round_trip():
+    """load_config_dir and load_config_file must produce identical AppConfig."""
+    config_dir = _make_config_dir({
+        "app.yaml": {"name": "RoundTrip", "version": "1.0.0"},
+        "soft_delete.yaml": {"retention_days": 14},
+        "adapters/adapters.yaml": {"repository": "duckdb"},
+        "adapters/output/duckdb.yaml": {"path": "data/"},
+        "adapters/input/fastapi.yaml": {"port": 8765},
+    })
+    out = config_dir / "config.yaml"
+    export_config_yaml(config_dir, out)
+
+    from_dir = load_config_dir(config_dir)
+    from_file = load_config_file(out)
+
+    assert from_dir.app.name == from_file.app.name
+    assert from_dir.soft_delete.retention_days == from_file.soft_delete.retention_days
+    assert from_dir.adapters.repository == from_file.adapters.repository
+    assert from_dir.api.port == from_file.api.port
+
+
+def test_export_config_yaml_raises_if_not_directory():
+    with tempfile.NamedTemporaryFile(suffix=".yaml") as f:
+        with pytest.raises(ValueError, match="config directory"):
+            export_config_yaml(Path(f.name), Path("/tmp/out.yaml"))
+
+
+def test_export_config_yaml_has_generated_header():
+    config_dir = _make_config_dir({"app.yaml": {"name": "Header"}})
+    out = config_dir / "config.yaml"
+    export_config_yaml(config_dir, out)
+    content = out.read_text()
+    assert "generated" in content
+    assert "do not edit" in content
+
+
+# ── load_config (backward-compatible wrapper) ─────────────────────────────────
+
+def test_load_config_routes_to_dir():
+    """load_config() should route to load_config_dir() when given a directory."""
+    config_dir = _make_config_dir({"app.yaml": {"name": "TestDir"}})
+    config = load_config(config_dir)
+    assert config.app.name == "TestDir"
+
+
+def test_load_config_routes_to_file():
+    """load_config() should route to load_config_file() when given a file."""
+    data = {"adapters": {"repository": "memory"}, "app": {"name": "TestFile"}}
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(data, f)
+        path = Path(f.name)
+    config = load_config(path)
+    path.unlink()
+    assert config.app.name == "TestFile"
+
+
+def test_load_config_raises_if_not_dir_or_file():
+    """load_config() should raise ValueError for non-existent paths."""
+    with pytest.raises(ValueError, match="must be a directory or file"):
+        load_config(Path("/non/existent/path"))

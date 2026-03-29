@@ -99,32 +99,44 @@ def _patch_pyproject(target_dir: Path, project_name: str) -> None:
     p.write_text(text.strip() + "\n")
 
 
-# ── config.yaml patching ──────────────────────────────────────────────────────
+# ── config/ directory patching ────────────────────────────────────────────────
 
 def _patch_config(target_dir: Path, project_name: str, port: int) -> None:
-    p = target_dir / "config.yaml"
-    if not p.exists():
+    _patch_yaml_field(target_dir / "config" / "app.yaml", "name", project_name)
+    _patch_yaml_field(
+        target_dir / "config" / "app.yaml",
+        "description",
+        f'"{project_name} — built on arclith"',
+    )
+    _patch_yaml_field(
+        target_dir / "config" / "adapters" / "output" / "mongodb.yaml",
+        "db_name",
+        project_name,
+    )
+    _patch_section_port(
+        target_dir / "config" / "adapters" / "input" / "fastapi.yaml",
+        port,
+    )
+    _patch_section_port(
+        target_dir / "config" / "adapters" / "input" / "fastmcp.yaml",
+        port + 1,
+    )
+
+
+def _patch_yaml_field(path: Path, key: str, value: str) -> None:
+    if not path.exists():
         return
-    text = p.read_text()
-    text = re.sub(r"(?m)(^  name:\s*).*$", rf"\g<1>{project_name}", text, count=1)
-    text = re.sub(
-        r'(?m)(^  description:\s*).*$',
-        rf'\g<1>"{project_name} — built on arclith"',
-        text,
-        count=1,
-    )
-    text = re.sub(r"(?m)(^    db_name:\s*).*$", rf"\g<1>{project_name}", text, count=1)
-    text = _replace_section_port(text, "api", port)
-    text = _replace_section_port(text, "mcp", port + 1)
-    p.write_text(text)
+    text = path.read_text()
+    text = re.sub(rf"(?m)(^{re.escape(key)}:\s*).*$", rf"\g<1>{value}", text, count=1)
+    path.write_text(text)
 
 
-def _replace_section_port(text: str, section: str, new_port: int) -> str:
-    pattern = re.compile(
-        rf"(^{re.escape(section)}:.*?)(^\s+port:\s*)\d+",
-        re.MULTILINE | re.DOTALL,
-    )
-    return pattern.sub(lambda m: f"{m.group(1)}{m.group(2)}{new_port}", text, count=1)
+def _patch_section_port(path: Path, new_port: int) -> None:
+    if not path.exists():
+        return
+    text = path.read_text()
+    text = re.sub(r"(?m)(^port:\s*)\d+", rf"\g<1>{new_port}", text, count=1)
+    path.write_text(text)
 
 
 # ── Case converters ───────────────────────────────────────────────────────────

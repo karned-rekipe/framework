@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, AsyncIterator, Literal, TypeVar
 from arclith.domain.models.entity import Entity
 from arclith.domain.ports.logger import Logger, LogLevel
 from arclith.domain.ports.repository import Repository
-from arclith.infrastructure.config import AppConfig, load_config
+from arclith.infrastructure.config import AppConfig, load_config_dir, load_config_file
 
 if TYPE_CHECKING:
     import fastmcp as _fastmcp
@@ -53,7 +53,14 @@ class _UvicornLogInterceptHandler(logging.Handler):
         )
 class Arclith:
     def __init__(self, config_path: str | Path) -> None:
-        self.config: AppConfig = load_config(Path(config_path))
+        p = Path(config_path)
+        if p.is_dir():
+            self.config: AppConfig = load_config_dir(p)
+        elif p.is_file():
+            self.config = load_config_file(p)
+        else:
+            raise ValueError(f"Config path not found: {p}")
+
     @cached_property
     def logger(self) -> Logger:
         from arclith.adapters.output.console.logger import ConsoleLogger
