@@ -15,7 +15,7 @@ class EntityInfo:
 def scan_entities(project_dir: Path) -> list[EntityInfo]:
     """Scan domain/models/*.py via AST to find Entity subclasses.
 
-    Extracts any class that directly or indirectly names 'Entity' as a base.
+    Extracts any class that directly names 'Entity' as a base.
     Parsing errors are silently skipped so a broken file never blocks the wizard.
     """
     models_dir = project_dir / "domain" / "models"

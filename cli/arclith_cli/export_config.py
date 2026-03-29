@@ -47,16 +47,23 @@ def export_config_cmd(
         console.print(f"[red]✗ Erreur :[/red] {exc}")
         raise typer.Exit(1) from exc
 
-    rel = output_path.relative_to(project_dir)
+    try:
+        rel = output_path.relative_to(project_dir)
+        display_path = str(rel)
+    except ValueError:
+        # output_path is outside project_dir (e.g., /tmp/config.yaml)
+        display_path = str(output_path)
+    
     console.print(
         Panel.fit(
-            f"[green]✓[/green] [bold]{rel}[/bold] généré depuis [dim]config/[/dim]\n\n"
+            f"[green]✓[/green] [bold]{display_path}[/bold] généré depuis [dim]config/[/dim]\n\n"
             f"  [bold cyan]Kubernetes[/bold cyan]  Monter ce fichier comme ConfigMap\n"
-            f"  [bold cyan]Arclith[/bold cyan]     [dim]Arclith(\"{rel}\")[/dim]  ←  identique à  [dim]Arclith(\"config/\")[/dim]\n\n"
+            f"  [bold cyan]Arclith[/bold cyan]     [dim]Arclith(\"{display_path}\")[/dim]  ←  identique à  [dim]Arclith(\"config/\")[/dim]\n\n"
             f"  [dim]⚠ Fichier généré — ne pas éditer manuellement.[/dim]\n"
             f"  [dim]  Ajouter [bold]config.yaml[/bold] à .gitignore[/dim]",
             border_style="green",
             title="[bold]export-config[/bold]",
         )
+
     )
 

@@ -13,6 +13,7 @@ from arclith.infrastructure.config import (
     export_config_yaml,
     load_config_dir,
     load_config_file,
+    load_config,
 )
 
 
@@ -331,3 +332,28 @@ def test_export_config_yaml_has_generated_header():
     assert "generated" in content
     assert "do not edit" in content
 
+
+# ── load_config (backward-compatible wrapper) ─────────────────────────────────
+
+def test_load_config_routes_to_dir():
+    """load_config() should route to load_config_dir() when given a directory."""
+    config_dir = _make_config_dir({"app.yaml": {"name": "TestDir"}})
+    config = load_config(config_dir)
+    assert config.app.name == "TestDir"
+
+
+def test_load_config_routes_to_file():
+    """load_config() should route to load_config_file() when given a file."""
+    data = {"adapters": {"repository": "memory"}, "app": {"name": "TestFile"}}
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(data, f)
+        path = Path(f.name)
+    config = load_config(path)
+    path.unlink()
+    assert config.app.name == "TestFile"
+
+
+def test_load_config_raises_if_not_dir_or_file():
+    """load_config() should raise ValueError for non-existent paths."""
+    with pytest.raises(ValueError, match="must be a directory or file"):
+        load_config(Path("/non/existent/path"))

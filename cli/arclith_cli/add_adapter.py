@@ -52,7 +52,7 @@ def _assert_arclith_project(project_dir: Path) -> None:
     if not (project_dir / "domain" / "models").exists():
         console.print(
             "[red]✗[/red] Aucun dossier [bold]domain/models/[/bold] trouvé.\n"
-            "    Exécutez [bold]arclith add-adapter[/bold] depuis la racine d'un projet arclith."
+            "    Exécutez [bold]arclith-cli add-adapter[/bold] depuis la racine d'un projet arclith."
         )
         raise typer.Exit(1)
     if not (project_dir / "config" / "adapters").exists():
@@ -241,7 +241,10 @@ def _generate(
         if not init_file.exists():
             init_file.write_text("")
         # repositories/__init__.py
-        (repo_dir / "__init__.py").write_text("")
+        repo_init_file = repo_dir / "__init__.py"
+        if not repo_init_file.exists():
+            repo_init_file.write_text("")
+            console.print(f"[green]✓[/green] {repo_init_file.relative_to(project_dir)}")
 
         # Repository subclass
         repo_file = repo_dir / f"{entity.snake}_repository.py"
