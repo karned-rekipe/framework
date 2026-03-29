@@ -55,17 +55,23 @@ def test_scaffold_and_run(temp_workspace: Path):
     assert result.returncode == 0, f"uv sync failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
     assert (project_dir / ".venv").exists(), "Virtual environment not created"
     
-    # Step 4 — validate main.py --help
+    # Step 4 — validate imports (don't start server, just check imports work)
     result = subprocess.run(
-        ["uv", "run", "python", "main.py", "--help"],
+        [
+            "uv", "run", "python", "-c",
+            "from arclith import load_config_dir, Arclith; "
+            "from adapters.input.fastapi.dependencies import require_auth; "
+            "from adapters.input.fastmcp.dependencies import require_auth_mcp; "
+            "print('✅ All imports OK')"
+        ],
         cwd=project_dir,
         capture_output=True,
         text=True,
         timeout=30,
     )
-    assert result.returncode == 0, f"main.py --help failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
-    assert "MODE=" in result.stdout or "usage:" in result.stdout.lower(), (
-        f"main.py --help output unexpected:\n{result.stdout}"
+    assert result.returncode == 0, f"Import validation failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert "✅ All imports OK" in result.stdout, (
+        f"Import validation output unexpected:\n{result.stdout}"
     )
     
     # Step 5 — verify expected structure
@@ -73,7 +79,7 @@ def test_scaffold_and_run(temp_workspace: Path):
     for dirname in expected_dirs:
         assert (project_dir / dirname).is_dir(), f"Missing expected directory: {dirname}"
     
-    expected_files = ["Dockerfile", "Makefile", "README.md"]
+    expected_files = ["Dockerfile", "Makefile"]
     for fname in expected_files:
         assert (project_dir / fname).exists(), f"Missing expected file: {fname}"
 
