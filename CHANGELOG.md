@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.7.0] — 2026-03-29
+
+### Added
+
+- **JWT auth pipeline** — `run_auth_pipeline()` in `adapters/input/auth_pipeline.py` : seule source de vérité pour la logique JWT (Bearer extraction → JWKS decode → licence → tenant resolution). Partagé par FastAPI et FastMCP.
+- **`make_require_auth()`** — protection sélective opt-in des routes FastAPI (HTTPBearer → bouton Authorize Swagger). Exposé via `arclith.auth_dependency()`.
+- **`make_require_auth_tool()`** — protection sélective opt-in des tools MCP. Exposé via `arclith.auth_dependency(transport="mcp")`.
+- **Multitenant générique** — `TenantContext: dict[adapter_name → AdapterTenantCoords(params)]` : entièrement générique, sans hypothèse sur les clés (MongoDB, S3, MariaDB, Redis, …).
+- **`JWTDecoder`** — validation JWKS Keycloak avec `CachePort` configurable (memory ou Redis).
+- **`RoleLicenseValidator`** — vérification du rôle realm Keycloak depuis les claims JWT.
+- **`MemoryCacheAdapter`** (zéro dépendance, défaut) + **`RedisCacheAdapter`** (`arclith[cache]`).
+- **`make_inject_tenant_uri`** — accepte `list[TenantResolver]`, résout en parallèle, fusionne en un seul `TenantContext` par requête.
+- **`VaultTenantResolver`** — résolution d'URI MongoDB (et autres) depuis HashiCorp Vault KV.
+- **Swagger UI PKCE** — auto-configuré quand `config.keycloak` est présent dans `Arclith.fastapi()`.
+- **`arclith.auth_dependency(transport)`** — factory unifiée retournant `require_auth` (FastAPI ou FastMCP) selon le transport.
+- **`arclith._cache`** — `CachePort` partagé JWKS + résolutions tenant (memory ou Redis selon config).
+- **`docs/auth.md`** — référence complète JWT : tous les patterns FastAPI + FastMCP, Swagger UI, contrôle par rôle, limitations.
+
+### Changed
+
+- **`fastapi/dependencies.py`** — wrapper FastAPI → `run_auth_pipeline()` (supprime le doublon `get_duration_ms`).
+- **`fastmcp/dependencies.py`** — même signature que FastAPI, délègue à `run_auth_pipeline()`.
+- **`multitenant` flag** — déplacé de `AdaptersSettings` vers `MongoDBSettings`/`DuckDBSettings`.
+- **`auth_pipeline.py`** — helpers extraits pour réduire la complexité cyclomatique (C→A).
+- **`config.py`** — suppression des doublons de classes (bug critique : `AppConfig.keycloak/tenant/license/cache` était écrasé).
+- **Nouvelles sections config** : `KeycloakSettings`, `TenantSettings`, `LicenseSettings`, `CacheSettings`.
+
+### Breaking Changes
+
+- **`run_mcp_stdio()` supprimé** (ADR-007) — incompatible Kubernetes et auth JWT. Utiliser `run_mcp_http()` ou `run_mcp_sse()`.
+
+---
+
 ## [0.6.1] — 2026-03-27
 
 ### Added

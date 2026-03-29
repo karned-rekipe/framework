@@ -59,6 +59,8 @@ def _extract_headers(ctx: fastmcp.Context) -> dict[str, str]:
     """
     try:
         request = ctx.request_context.request  # type: ignore[union-attr]
+        if request is None:
+            return {}
         return dict(request.headers)
     except Exception:
         return {}
