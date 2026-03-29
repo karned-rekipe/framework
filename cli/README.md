@@ -1,6 +1,6 @@
 # arclith-cli
 
-`arclith-cli` génère instantanément un projet Python en architecture hexagonale prêt à démarrer, en téléchargeant le template officiel `_sample` depuis GitHub et en remplaçant l'entité de démo `Ingredient` par le nom de votre choix. Tout type de projet peut être scaffoldé — service REST, agent IA, API MCP — avec les ports, le nom de projet et le backend de persistance configurés d'emblée. Une seule commande suffit : `arclith-cli new <Entity> <project-name>`.
+`arclith-cli` génère instantanément un projet Python en architecture hexagonale prêt à démarrer, en téléchargeant le template officiel `_sample` depuis GitHub et en remplaçant l'entité de démo `Ingredient` par le nom de votre choix. Tout type de projet peut être scaffoldé — service REST, agent IA, API MCP — avec les ports, le nom de projet et le backend de persistance configurés d'emblée. Lancez simplement `arclith-cli new` : l'outil vous pose les questions nécessaires.
 
 ## Installation
 
@@ -11,7 +11,10 @@ uv tool install "git+https://github.com/karned-rekipe/framework.git#subdirectory
 ## Utilisation
 
 ```bash
-# Nouveau projet
+# Mode interactif — l'outil pose les questions
+arclith-cli new
+
+# Mode direct — arguments passés en ligne de commande
 arclith-cli new Recipe my-recipe-service
 arclith-cli new RecipeStep meal-planner --port 8400
 arclith-cli new MealPlan meal-plan-service --dir ~/projects --port 8500
@@ -27,4 +30,3 @@ arclith-cli update
 | `--port` / `-p` | `8000` | Port REST (MCP = port+1) |
 | `--dir` / `-d` | `.` | Répertoire parent |
 | `--ref` | `main` | Branche/tag du template |
-

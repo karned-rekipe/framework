@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Annotated
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
+from rich.prompt import Prompt
 from rich.tree import Tree
 
 from . import __version__
@@ -16,70 +18,76 @@ from .updater import run_update
 app = typer.Typer(
     name="arclith-cli",
     help="Scaffold [bold]arclith[/bold] hexagonal projects from the official template.",
-    no_args_is_help=True,
+    no_args_is_help=False,
     rich_markup_mode="rich",
 )
 console = Console()
+
+_ENTITY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*$")
+_PROJECT_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_\-]*$")
 
 
 @app.command()
 def new(
     entity: Annotated[
-        str,
+        str | None,
         typer.Argument(
-            help="Entity name — any case accepted: [dim]Recipe[/dim], [dim]recipe_step[/dim], [dim]meal-plan[/dim]",
+            help="Nom de l'entité au [bold]singulier[/bold] — tout format accepté : [dim]Recipe[/dim], [dim]recipe_step[/dim], [dim]meal-plan[/dim]",
         ),
-    ],
+    ] = None,
     project_name: Annotated[
-        str,
-        typer.Argument(help="Project directory name. Example: [dim]my-recipe-service[/dim]"),
-    ],
+        str | None,
+        typer.Argument(help="Nom du répertoire du projet. Exemple : [dim]my-recipe-service[/dim]"),
+    ] = None,
     directory: Annotated[
         Path,
-        typer.Option("--dir", "-d", help="Parent directory where the project will be created"),
+        typer.Option("--dir", "-d", help="Répertoire parent où le projet sera créé"),
     ] = Path("."),
     port: Annotated[
         int,
-        typer.Option("--port", "-p", help="REST API port. MCP port will be port+1."),
+        typer.Option("--port", "-p", help="Port REST (MCP = port+1)"),
     ] = 8000,
     repo_ref: Annotated[
         str,
-        typer.Option("--ref", help="Git branch or tag of the _sample template"),
+        typer.Option("--ref", help="Branche ou tag Git du template _sample"),
     ] = "main",
 ) -> None:
-    """Create a new [bold]arclith[/bold] project scaffolded from the official [dim]_sample[/dim] template."""
+    """Créer un nouveau projet [bold]arclith[/bold] scaffoldé depuis le template officiel [dim]_sample[/dim]."""
+    entity = entity or _prompt_entity()
+    project_name = project_name or _prompt_project()
+
     names = EntityNames.from_input(entity)
     target_dir = directory.resolve() / project_name
 
     if target_dir.exists():
-        console.print(f"[red]✗[/red] Directory already exists: [bold]{target_dir}[/bold]")
+        console.print(f"[red]✗[/red] Le répertoire existe déjà : [bold]{target_dir}[/bold]")
         raise typer.Exit(1)
 
     console.print(
         Panel.fit(
             f"[bold blue]arclith-cli[/bold blue] [dim]v{__version__}[/dim]\n\n"
-            f"  Entity   [bold green]{names.pascal}[/bold green]  [dim]({names.snake} / {names.upper})[/dim]\n"
-            f"  Project  [bold]{project_name}[/bold]\n"
-            f"  Target   [dim]{target_dir}[/dim]\n"
+            f"  Entité   [bold green]{names.pascal}[/bold green]  [dim]({names.snake} / {names.upper})[/dim]\n"
+            f"  Projet   [bold]{project_name}[/bold]\n"
+            f"  Cible    [dim]{target_dir}[/dim]\n"
             f"  Ports    REST [bold]{port}[/bold]  ·  MCP [bold]{port + 1}[/bold]",
             border_style="blue",
-            title="[bold]New project[/bold]",
+            title="[bold]Nouveau projet[/bold]",
         )
     )
 
-    with console.status("[bold]Downloading template from GitHub…[/bold]"):
+    with console.status("[bold]Téléchargement du template depuis GitHub…[/bold]"):
         try:
             download_and_extract(target_dir, ref=repo_ref)
         except Exception as exc:
-            console.print(f"[red]✗ Download failed:[/red] {exc}")
+            console.print(f"[red]✗ Téléchargement échoué :[/red] {exc}")
             raise typer.Exit(1) from exc
 
-    console.print("[green]✓[/green] Template extracted")
+    console.print("[green]✓[/green] Template extrait")
 
-    with console.status("[bold]Renaming entity…[/bold]"):
+    with console.status("[bold]Renommage de l'entité…[/bold]"):
         apply_rename(target_dir, names, project_name=project_name, port=port)
 
-    console.print("[green]✓[/green] Rename complete")
+    console.print("[green]✓[/green] Renommage terminé")
     _print_summary(target_dir, project_name, port)
 
 
@@ -98,6 +106,41 @@ def update(
 def version() -> None:
     """Show the arclith-cli version."""
     console.print(f"arclith-cli [bold]{__version__}[/bold]")
+
+
+# ── Prompts interactifs ───────────────────────────────────────────────────────
+
+def _prompt_entity() -> str:
+    console.print(
+        "\n[bold]Entité[/bold] — utilisez le [yellow]singulier[/yellow] "
+        "[dim](ex : Recipe, recipe_step, MealPlan)[/dim]"
+    )
+    while True:
+        value = Prompt.ask("  [bold green]Nom de l'entité[/bold green]").strip()
+        if not value:
+            console.print("  [red]Le nom ne peut pas être vide.[/red]")
+        elif not _ENTITY_RE.match(value):
+            console.print(
+                "  [red]Caractères invalides.[/red] "
+                "[dim]Lettres, chiffres, _ et - uniquement. Doit commencer par une lettre.[/dim]"
+            )
+        else:
+            return value
+
+
+def _prompt_project() -> str:
+    console.print("\n[bold]Projet[/bold] [dim](ex : my-recipe-service, meal-planner)[/dim]")
+    while True:
+        value = Prompt.ask("  [bold green]Nom du projet[/bold green]").strip()
+        if not value:
+            console.print("  [red]Le nom ne peut pas être vide.[/red]")
+        elif not _PROJECT_RE.match(value):
+            console.print(
+                "  [red]Caractères invalides.[/red] "
+                "[dim]Lettres, chiffres, _ et - uniquement. Doit commencer par une lettre.[/dim]"
+            )
+        else:
+            return value
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -135,4 +178,3 @@ def _build_tree(node: Tree, path: Path, depth: int, max_depth: int) -> None:
         branch = node.add(label)
         if child.is_dir():
             _build_tree(branch, child, depth + 1, max_depth)
-
