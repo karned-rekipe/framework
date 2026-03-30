@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.8.0] — 2026-03-30
+
+### Added
+
+- **SOTA REST middlewares** — `CacheControlMiddleware`, `ETaggerMiddleware`, `IdempotencyMiddleware` (RFC 7231/7232/7234/7240/8288) auto-activés via `Arclith.fastapi()`
+- **`config.http`** — section de config `HttpSettings` : `cache_control`, `etag`, `idempotency`
+- **`client_id` dans `KeycloakSettings`** — client public PKCE pour Swagger UI, distinct de `audience` (validation JWT)
+
+### Fixed
+
+- **Swagger UI OAuth2 PKCE** — `_patch_openapi_keycloak` remplace `HTTPBearer` par `keycloak` dans la sécurité des routes et supprime `HTTPBearer` des `securitySchemes` → le dialog n'affiche que la section `keycloak (Authorized)`, sans champ vide confus
+- **`initOAuth`** — utilise `client_id` (au lieu de `audience`), ajoute `prompt=login` pour forcer le formulaire Keycloak et éviter la reconnexion SSO silencieuse
+- **`JWTDecoder`** — désactive `verify_aud` quand `audience=None` (PyJWT lève `InvalidAudienceError` même sans audience configurée si le token contient un claim `aud`)
+
+---
+
 ## [0.7.1] — 2026-03-30
 
 ### Fixed
