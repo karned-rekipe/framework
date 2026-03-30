@@ -337,11 +337,12 @@ class Arclith:
 
     def run_api(self, app: "FastAPI | str") -> None:
         import uvicorn
+        in_main_thread = threading.current_thread() is threading.main_thread()
         uvicorn.run(
             app,  # type: ignore[arg-type]
             host=self.config.api.host,
             port=self.config.api.port,
-            reload=self.config.api.reload if isinstance(app, str) else False,
+            reload=self.config.api.reload if isinstance(app, str) and in_main_thread else False,
             log_config=_UVICORN_LOG_CONFIG,
         )
 
