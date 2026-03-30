@@ -113,6 +113,27 @@ class CacheSettings(BaseModel):
     tenant_uri_ttl: int = 300
 
 
+class IdempotencySettings(BaseModel):
+    enabled: bool = True
+    ttl_seconds: int = 86400  # 24 hours
+    required: bool = False  # If True, reject POST without Idempotency-Key
+
+
+class ETagSettings(BaseModel):
+    enabled: bool = True
+
+
+class CacheControlSettings(BaseModel):
+    get_single_max_age: int = 300  # 5 minutes
+    get_list_max_age: int = 60  # 1 minute
+
+
+class HttpSettings(BaseModel):
+    idempotency: IdempotencySettings = IdempotencySettings()
+    etag: ETagSettings = ETagSettings()
+    cache_control: CacheControlSettings = CacheControlSettings()
+
+
 class AppSettings(BaseModel):
     name: str = "arclith-service"
     version: str = "0.0.0"
@@ -126,6 +147,7 @@ class AppConfig(BaseModel):
     api: ApiSettings = ApiSettings()
     mcp: McpSettings = McpSettings()
     probe: ProbeSettings = ProbeSettings()
+    http: HttpSettings = HttpSettings()
     keycloak: KeycloakSettings | None = None
     tenant: TenantSettings | None = None
     license: LicenseSettings | None = None
@@ -277,4 +299,3 @@ def load_config(path: Path) -> AppConfig:
     if path.is_file():
         return load_config_file(path)
     raise ValueError(f"Path must be a directory or file: {path}")
-

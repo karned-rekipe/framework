@@ -107,9 +107,35 @@ class Arclith:
                 ApiMetricsCollector(app=None, registry=self._metrics_registry)  # type: ignore[arg-type]
             )
 
-        # TimingMiddleware always active — attach last so it wraps the full stack
+        # SOTA HTTP middlewares — order matters (outermost to innermost)
+        # TimingMiddleware wraps all others → measures total request time
         from arclith.adapters.input.fastapi.timing import TimingMiddleware
         app.add_middleware(TimingMiddleware, logger=self.logger)
+
+        # CacheControlMiddleware — inject Cache-Control headers
+        from arclith.adapters.input.fastapi.cache_control import CacheControlMiddleware
+        app.add_middleware(
+            CacheControlMiddleware,
+            logger = self.logger,
+            get_single_max_age = self.config.http.cache_control.get_single_max_age,
+            get_list_max_age = self.config.http.cache_control.get_list_max_age,
+        )
+
+        # ETaggerMiddleware — manage ETag/If-Match for optimistic locking
+        from arclith.adapters.input.fastapi.etag import ETaggerMiddleware
+        if self.config.http.etag.enabled:
+            app.add_middleware(ETaggerMiddleware, logger = self.logger)
+
+        # IdempotencyMiddleware — prevent duplicate POST requests (critical for e-commerce)
+        from arclith.adapters.input.fastapi.idempotency import IdempotencyMiddleware
+        if self.config.http.idempotency.enabled:
+            app.add_middleware(
+                IdempotencyMiddleware,
+                cache = self._cache,
+                logger = self.logger,
+                ttl = self.config.http.idempotency.ttl_seconds,
+                required = self.config.http.idempotency.required,
+            )
 
         # Inject Keycloak OAuth2 PKCE security scheme into the OpenAPI spec
         if self.config.keycloak:
@@ -246,7 +272,6 @@ class Arclith:
         - N runners → each in its own non-daemon thread; main thread joins (MODE=all).
 
         ``transports`` populates /info → active_transports.
-        Note: mcp_stdio is incompatible with MODE=all.
         """
         if not runners:
             return
