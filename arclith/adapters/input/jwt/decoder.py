@@ -43,6 +43,10 @@ class JWTDecoder:
         kwargs: dict = {"algorithms": ["RS256"]}
         if self._audience:
             kwargs["audience"] = self._audience
+        else:
+            # PyJWT raises InvalidAudienceError even when audience is not configured
+            # if the token contains an 'aud' claim — disable verification explicitly
+            kwargs["options"] = {"verify_aud": False}
         return jwt.decode(token, public_key, **kwargs)  # type: ignore[arg-type]
 
     async def _get_jwks(self) -> dict:

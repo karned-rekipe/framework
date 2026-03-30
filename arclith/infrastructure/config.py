@@ -93,6 +93,7 @@ class KeycloakSettings(BaseModel):
     url: str
     realm: str
     audience: str | None = None
+    client_id: str | None = None  # Client OAuth2 pour Swagger UI (doit être public/PKCE)
 
 
 class TenantSettings(BaseModel):

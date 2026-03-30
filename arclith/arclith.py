@@ -77,13 +77,25 @@ class Arclith:
         kwargs.setdefault("description", self.config.app.description)
 
         # Pre-fill Swagger UI OAuth2 when Keycloak is configured
-        if self.config.keycloak and "swagger_ui_init_oauth" not in kwargs:
-            kc = self.config.keycloak
-            kwargs["swagger_ui_init_oauth"] = {
-                "clientId": kc.audience or "arclith-client",
-                "usePkceWithAuthorizationCodeGrant": True,
-                "scopes": "openid profile",
-            }
+        if self.config.keycloak:
+            if "swagger_ui_init_oauth" not in kwargs:
+                kc = self.config.keycloak
+                # Utiliser client_id si défini, sinon audience, sinon défaut
+                client_id = kc.client_id or kc.audience or "arclith-client"
+                kwargs["swagger_ui_init_oauth"] = {
+                    "clientId": client_id,
+                    "usePkceWithAuthorizationCodeGrant": True,
+                    "scopes": "openid profile",
+                    "additionalQueryStringParams": {"prompt": "login"},
+                }
+            # Définir explicitement l'URL de redirection OAuth2 pour Swagger UI
+            if "swagger_ui_oauth2_redirect_url" not in kwargs:
+                kwargs["swagger_ui_oauth2_redirect_url"] = "/docs/oauth2-redirect"
+            # Persister automatiquement l'autorisation OAuth2
+            if "swagger_ui_parameters" not in kwargs:
+                kwargs["swagger_ui_parameters"] = {
+                    "persistAuthorization": True,
+                }
 
         user_lifespan = kwargs.pop("lifespan", None)
         arclith_self = self
@@ -161,7 +173,8 @@ class Arclith:
             if app.openapi_schema:
                 return app.openapi_schema
             schema: dict = _original()
-            schema.setdefault("components", {}).setdefault("securitySchemes", {})["keycloak"] = {
+            schemes = schema.setdefault("components", {}).setdefault("securitySchemes", {})
+            schemes["keycloak"] = {
                 "type": "oauth2",
                 "flows": {
                     "authorizationCode": {
@@ -174,6 +187,27 @@ class Arclith:
                     }
                 },
             }
+            # Remove HTTPBearer from securitySchemes: it was auto-added by FastAPI
+            # but we want the Swagger UI dialog to only show the keycloak OAuth2 section
+            schemes.pop("HTTPBearer", None)
+
+            # Replace HTTPBearer with keycloak in route security so Swagger UI
+            # only shows the OAuth2 scheme (no confusing empty HTTPBearer field).
+            # The server still accepts any valid Bearer token — HTTPBearer stays
+            # in securitySchemes for programmatic clients.
+            for path_item in schema.get("paths", {}).values():
+                for operation in path_item.values():
+                    if not isinstance(operation, dict):
+                        continue
+                    security = operation.get("security")
+                    if security is None:
+                        continue
+                    has_bearer = any("HTTPBearer" in s for s in security)
+                    has_keycloak = any("keycloak" in s for s in security)
+                    if has_bearer and not has_keycloak:
+                        operation["security"] = [
+                            s for s in security if "HTTPBearer" not in s
+                        ] + [{"keycloak": ["openid", "profile"]}]
             app.openapi_schema = schema
             return schema
 
