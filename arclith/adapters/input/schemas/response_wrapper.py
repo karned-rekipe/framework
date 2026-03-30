@@ -4,7 +4,6 @@ from typing import Generic, TypeVar
 from pydantic import BaseModel, Field
 from uuid6 import uuid7
 
-
 T = TypeVar("T")
 
 
@@ -13,7 +12,7 @@ class ResponseMetadata(BaseModel):
 
     request_id: str = Field(
         default_factory=lambda: str(uuid7()),
-        description="Identifiant unique de la requête pour le traçage (UUIDv7 time-ordered).",
+        description = "Identifiant unique de la requête pour le traçage (UUIDv7 time-ordered). Peut être fourni par le client via header X-Request-ID.",
         examples=["01951234-5678-7abc-def0-123456789abc"],
     )
     timestamp: datetime = Field(

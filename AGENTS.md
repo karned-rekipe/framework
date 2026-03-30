@@ -77,7 +77,7 @@ Arclith.__init__(config_path)
   └─ .repository(entity_class) → build_repository() → InMemory|MongoDB|DuckDB Repository
   └─ .fastapi(**kwargs) → FastAPI avec lifespan
   └─ .fastmcp(name) → FastMCP
-  └─ .run_api() / .run_mcp_sse() / .run_mcp_stdio() / .run_mcp_http()
+  └─ .run_api() / .run_mcp_sse() / .run_mcp_http()
 ```
 
 ## Primitives détaillées
