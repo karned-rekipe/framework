@@ -551,3 +551,44 @@ make test
 ### Références
 
 - `_sample/adapters/input/` — implémentation de référence
+
+---
+
+## SK-F10 — Corriger un DeprecationWarning tiers
+
+**Contexte :** une dépendance (directe ou transitive) émet un `DeprecationWarning` visible dans les logs ou les tests.
+
+> ⚠️ **Règle absolue : on ne masque jamais un warning sans corriger sa cause racine.**
+> Utiliser `filterwarnings = ["ignore::DeprecationWarning:..."]` dans pytest ou `warnings.filterwarnings("ignore")`
+> est interdit. Cela cache la dette sans la réduire et peut dissimuler des régressions futures.
+
+### Protocole de diagnostic
+
+1. **Identifier la chaîne d'import** — lire le stacktrace complet du warning (ou lancer `python -W error::DeprecationWarning -c "import <suspect>"` pour forcer l'exception et obtenir la pile entière).
+2. **Localiser le fichier source** — le warning vient d'un `__init__.py` ou d'un module dans `.venv/lib/.../site-packages/`. Lire le fichier pour comprendre QUI l'importe.
+3. **Identifier l'entrée d'arclith** — remonter jusqu'au code d'`arclith` qui déclenche la chaîne (ex : paramètre de config d'un serveur tiers).
+4. **Corriger à la source** — modifier le code d'`arclith` pour éviter le chemin d'import incriminé (ex : passer `ws="websockets-sansio"` à uvicorn).
+
+### Règle : résoudre les versions avant de bumper
+
+Avant de modifier une contrainte de version dans `pyproject.toml` :
+
+1. **Vérifier quelle version exacte** corrige le comportement ciblé :
+   ```bash
+   # Vérifier le changelog / release notes du package sur PyPI
+   uv run --frozen python -c "import <pkg>; print(<pkg>.__version__)"
+   # Tester localement avec la version candidate
+   uv add <pkg>==<candidate> --dev  # dans une branche temporaire
+   make test  # confirmer la disparition du warning
+   ```
+2. **Documenter la version** dans l'ADR avant de committer le bump.
+3. **Ne jamais bumper en aveugle** avec `>=latest` sans avoir validé le comportement.
+
+### Validation
+
+```bash
+# Le warning ne doit plus apparaître
+uv run --frozen pytest -v -W error::DeprecationWarning
+# La suite de tests reste verte
+make test
+```
