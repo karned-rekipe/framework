@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.2] — 2026-04-04
+
+### Fixed
+
+- **`ws="websockets-sansio"`** — `Arclith.run_api()` et `ProbeServer.start_in_background()` forcent désormais l'implémentation sansio d'uvicorn. Corrige le `DeprecationWarning: websockets.legacy is deprecated` émis par `uvicorn 0.41.0` qui sélectionnait `websockets_impl.py` (legacy) dès que `websockets` était installé (via `fastmcp`).
+
+---
+
 ## [0.8.0] — 2026-03-30
 
 ### Added
