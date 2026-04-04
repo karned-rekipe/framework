@@ -7,6 +7,7 @@ import yaml
 from arclith.infrastructure.config import (
     AppConfig,
     DuckDBSettings,
+    LMSettings,
     SoftDeleteSettings,
     _deep_merge,
     _resolve_key_path,
@@ -357,3 +358,53 @@ def test_load_config_raises_if_not_dir_or_file():
     """load_config() should raise ValueError for non-existent paths."""
     with pytest.raises(ValueError, match="must be a directory or file"):
         load_config(Path("/non/existent/path"))
+
+
+# ── LMSettings ────────────────────────────────────────────────────────────────
+
+def test_adapters_lm_defaults_to_none():
+    assert AppConfig().adapters.lm is None
+
+
+def test_adapters_lm_parsed_from_yaml():
+    config = AppConfig.model_validate({
+        "adapters": {
+            "lm": {
+                "provider": "anthropic",
+                "model_name": "claude-opus-4-5",
+                "api_key": "sk-ant-test",
+            }
+        }
+    })
+    assert config.adapters.lm is not None
+    assert config.adapters.lm.provider == "anthropic"
+    assert config.adapters.lm.model_name == "claude-opus-4-5"
+    assert config.adapters.lm.api_key == "sk-ant-test"
+    assert config.adapters.lm.base_url is None
+
+
+def test_adapters_lm_openai_with_base_url():
+    config = AppConfig.model_validate({
+        "adapters": {
+            "lm": {
+                "provider": "openai",
+                "model_name": "llama3",
+                "api_key": "ollama",
+                "base_url": "http://localhost:11434/v1",
+            }
+        }
+    })
+    assert config.adapters.lm is not None
+    assert config.adapters.lm.provider == "openai"
+    assert config.adapters.lm.base_url == "http://localhost:11434/v1"
+
+
+def test_adapters_lm_loaded_from_config_dir():
+    config_dir = _make_config_dir({
+        "adapters/adapters.yaml": {"repository": "memory"},
+        "adapters/output/lm.yaml": {"provider": "anthropic", "model_name": "claude-sonnet-4-5", "api_key": ""},
+    })
+    config = load_config_dir(config_dir)
+    assert config.adapters.lm is not None
+    assert config.adapters.lm.provider == "anthropic"
+

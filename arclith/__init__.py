@@ -9,7 +9,7 @@ from arclith.domain.models.entity import Entity
 from arclith.domain.ports.logger import Logger, LogLevel
 from arclith.domain.ports.repository import Repository
 from arclith.infrastructure.adapter_registry import AdapterRegistry
-from arclith.infrastructure.config import AppConfig, export_config_yaml, load_config, load_config_dir, load_config_file
+from arclith.infrastructure.config import AppConfig, LMSettings, export_config_yaml, load_config, load_config_dir, load_config_file
 
 if TYPE_CHECKING:  # pragma: no cover - for static type checkers only
     from arclith.adapters.output.console.logger import ConsoleLogger as _ConsoleLogger, ConsoleLogger  # noqa: F401
@@ -25,12 +25,14 @@ __all__ = [
     "InMemoryRepository",
     "MongoDBConfig",
     "AppConfig",
+    "LMSettings",
     "load_config",
     "load_config_dir",
     "load_config_file",
     "export_config_yaml",
     "AdapterRegistry",
     "Arclith",
+    "build_pydantic_ai_model",
 ]
 
 def __getattr__(name):
@@ -45,4 +47,9 @@ def __getattr__(name):
 
         globals()["ConsoleLogger"] = _ConsoleLoggerRuntime
         return _ConsoleLoggerRuntime
+    if name == "build_pydantic_ai_model":
+        from arclith.infrastructure.lm import build_pydantic_ai_model as _build_pydantic_ai_model
+
+        globals()["build_pydantic_ai_model"] = _build_pydantic_ai_model
+        return _build_pydantic_ai_model
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
