@@ -344,6 +344,7 @@ class Arclith:
             port=self.config.api.port,
             reload=self.config.api.reload if isinstance(app, str) and in_main_thread else False,
             log_config=_UVICORN_LOG_CONFIG,
+            ws="websockets-sansio",
         )
 
 

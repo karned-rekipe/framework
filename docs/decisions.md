@@ -138,6 +138,37 @@ devrait être appliqué deux fois.
 - Tests du pipeline mutualisé : un seul fichier `tests/units/adapters/input/test_auth_pipeline.py` (à créer — SK-AUTH-01).
 
 
+---
+
+## ADR-009 — `ws="websockets-sansio"` imposé sur toutes les configs uvicorn
+
+**Date :** 2026-04-04
+
+**Contexte :** `uvicorn 0.41.0` sélectionne automatiquement `websockets_impl.py` (legacy) quand `websockets` est installé
+(via `fastmcp`). Ce module importe `websockets.legacy`, déprécié depuis `websockets 14.0`. `fastmcp/__init__` active
+globalement `warnings.simplefilter("default", DeprecationWarning)`, rendant le warning visible à chaque démarrage.
+
+**Décision :** Passer `ws="websockets-sansio"` explicitement à chaque construction de `uvicorn.Config` / `uvicorn.run()`
+dans `arclith`. L'implémentation `websockets_sansio_impl.py` n'utilise que la nouvelle API `websockets` (≥14.0), sans
+import `legacy`.
+
+**Pourquoi pas l'alternative évidente (supprimer le warning via `filterwarnings`) :**
+Masquer un avertissement sans corriger la cause racine est interdit : cela cache une dette technique et peut dissimuler
+des régressions futures. **Règle absolue : on ne masque jamais un warning sans corriger sa source.**
+
+**Pourquoi pas bump de `uvicorn` :**
+Avant tout bump de dépendance, il faut vérifier quelle version exacte corrige le comportement ciblé (règle SK-F10).
+Ici, `ws="websockets-sansio"` est disponible depuis uvicorn 0.20+, la correction est déterministe et ne nécessite
+aucun changement de contrainte dans `pyproject.toml`.
+
+**Conséquence sur le code :**
+
+- `Arclith.run_api()` — `uvicorn.run(..., ws="websockets-sansio")`
+- `ProbeServer.start_in_background()` — `uvicorn.Config(..., ws="websockets-sansio")`
+- `websockets_impl.py` (legacy) n'est jamais chargé par arclith.
+
+---
+
 **Contexte :** Exposer les services via le Model Context Protocol.
 
 **Décision :** `fastmcp>=3.1.0` avec trois transports : stdio, SSE, streamable-HTTP.
