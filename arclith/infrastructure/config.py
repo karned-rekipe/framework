@@ -35,6 +35,13 @@ class DuckDBSettings(BaseModel):
         return v
 
 
+class LMSettings(BaseModel):
+    provider: Literal["anthropic", "openai"] = "anthropic"
+    model_name: str = "claude-sonnet-4-5"
+    api_key: str = ""
+    base_url: str | None = None  # requis si provider="openai" (LLM local/custom)
+
+
 class SoftDeleteSettings(BaseModel):
     retention_days: float | None = None
 
@@ -51,6 +58,7 @@ class AdaptersSettings(BaseModel):
     repository: Literal["memory", "mongodb", "duckdb"] = "memory"
     mongodb: MongoDBSettings | None = None
     duckdb: DuckDBSettings | None = None
+    lm: LMSettings | None = None
 
     @property
     def multitenant(self) -> bool:
